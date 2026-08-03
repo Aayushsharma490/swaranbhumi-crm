@@ -1,0 +1,188 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  EXECUTIVE
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  INTERESTED
+  SITE_VISIT
+  NEGOTIATION
+  BOOKED
+  LOST
+  DUPLICATE
+}
+
+enum LeadPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+model User {
+  id           String        @id @default(uuid())
+  name         String
+  email        String        @unique
+  passwordHash String
+  role         Role          @default(EXECUTIVE)
+  status       UserStatus    @default(ACTIVE)
+  refreshToken String?       @db.Text
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  assignedLeads     Lead[]           @relation("AssignedLeads")
+  leadNotes         LeadNote[]       @relation("AuthorNotes")
+  leadAttachments   LeadAttachment[] @relation("UploadedAttachments")
+  timelineActions   LeadTimeline[]   @relation("ActionUser")
+}
+
+model Lead {
+  id               String       @id @default(uuid())
+  name             String
+  phone            String
+  alternatePhone   String?
+  email            String?
+  city             String?
+  state            String?
+  budget           String?
+  project          String?
+  propertyType     String?
+  leadSource       String       @default("DIRECT") // e.g. FACEBOOK, DIRECT, WEBSITE, REFERRAL
+  facebookCampaign String?
+  facebookAdSet    String?
+  facebookAd       String?
+  facebookFormName String?
+  facebookLeadId   String?      @unique
+  priority         LeadPriority @default(MEDIUM)
+  status           LeadStatus   @default(NEW)
+  followUpDate     DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  assignedEmployeeId String?
+  assignedEmployee   User?    @relation("AssignedLeads", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
+
+  notes        LeadNote[]
+  attachments  LeadAttachment[]
+  timeline     LeadTimeline[]
+  booking      Booking?
+
+  @@index([phone])
+  @@index([email])
+  @@index([status])
+  @@index([assignedEmployeeId])
+  @@index([createdAt])
+  @@index([facebookLeadId])
+}
+
+model LeadNote {
+  id        String   @id @default(uuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation("AuthorNotes", fields: [authorId], references: [id], onDelete: Cascade)
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([leadId])
+}
+
+model LeadAttachment {
+  id           String   @id @default(uuid())
+  leadId       String
+  lead         Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  filename     String
+  filePath     String
+  mimeType     String
+  size         Int
+  uploadedById String
+  uploadedBy   User     @relation("UploadedAttachments", fields: [uploadedById], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+}
+
+model LeadTimeline {
+  id          String   @id @default(uuid())
+  leadId      String
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  actionType  String   // CREATE, ASSIGN, STATUS_UPDATE, TRANSFER, NOTE_ADD, ATTACHMENT_ADD, BOOKING_CREATE
+  description String   @db.Text
+  createdById String
+  createdBy   User     @relation("ActionUser", fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@index([leadId])
+  @@index([createdAt])
+}
+
+model Booking {
+  id              String        @id @default(uuid())
+  leadId          String        @unique
+  lead            Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  propertyDetails String        @db.Text
+  agreementNumber String?       @unique
+  bookingDate     DateTime      @default(now())
+  totalAmount     Float
+  status          BookingStatus @default(PENDING)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  payments  Payment[]
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  bookingId       String
+  booking         Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  amount          Float
+  paymentDate     DateTime      @default(now())
+  paymentMode     String        // CASH, BANK_TRANSFER, CHEQUE, ONLINE
+  referenceNumber String?
+  status          PaymentStatus @default(PENDING)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([bookingId])
+}
+
+model SystemSettings {
+  id                       String   @id @default("meta_settings")
+  encryptedAppId           String?  @db.Text
+  encryptedAppSecret       String?  @db.Text
+  encryptedPageAccessToken String?  @db.Text
+  verifyToken              String?
+  apiUrl                   String?
+  lastSyncAt               DateTime?
+  lastSyncLeadName         String?
+  lastSyncCount            Int?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+}

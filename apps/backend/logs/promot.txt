@@ -1,0 +1,11 @@
+see first of all i have to purchese the vps plan on hostinger clinet ne bola h ki din ki 12 leads 20 leads hi aati h to 1kvm ka plan le rahe h abhi demo showcasing ek liey  yo muje step by step batna asab kuch kese kare kya karn ah deep ma mene hostinger par account banay h abhi bas and second thing was abhi clinet manaully phone lete h leads se to hume esse feature dane ki ye automate ho like call and all the things easy ho samjnhe ke liey jaldi bulky feature na ho simple dasboard and all and jo bhi ek perefct leads managemnegt ke loey chaiye vo abhi currlenlt ek lady hi leti h csv se call so unko help ho issi software design karni h hume and second things mene sari permsiion devlo emeta dahsboardse review ke liey dali h app live h bas review ma show ho raha h 20 days ma kar lnege and new ui meta develop dashbaord ma khi bhi leads retirval ki permission jesa kuch bhi nhi tha no use case ho skat h app review ke baad permission  mil jaye may be to uska bhi hume dekhna h or new leads or old leads diff karni h like 3 days,7,30 days and quick notes likh paye leads par like cal missed , not answr or jo bhi possibel ho skte h sab quick notes ma add karna h and ab vps 24 hrs onrhagea so meta dahsbaord and new webhooks jo bhi jisse new leads hum automatic retirev kar paye vo karna h phele hum new csv files se sari leads dal deneg abhi tak ki and make sure same leads override na ho new hi add or ab kpi new lead aati h to with notification show ho instant hamare crm ma and kis form se aayi h id and all sab kuch proper rkahna ye deal close ho jaye must make sure this and ab uje client ko finl exe bejni h sab kuch owrking ke sath jo ab hum sab kuch complet ekar rah eh rela prodution ke lioey ab  kardo sab sahi 
+
+
+
+
+
+
+
+
+
+in video 

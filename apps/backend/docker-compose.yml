@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: swaranbhumi-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: crmpassword
+      POSTGRES_DB: swaranbhumi_crm
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+
+volumes:
+  postgres_data:

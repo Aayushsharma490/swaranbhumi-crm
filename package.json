@@ -1,0 +1,18 @@
+{
+  "name": "swaranbhumi-crm-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "bootstrap": "npm install",
+    "build:shared": "npm run build --workspace=packages/shared",
+    "build:backend": "npm run build --workspace=apps/backend",
+    "build:desktop": "npm run build --workspace=apps/desktop",
+    "build": "npm run build:shared && npm run build:backend && npm run build:desktop",
+    "dev:backend": "npm run dev --workspace=apps/backend",
+    "dev:desktop": "npm run dev --workspace=apps/desktop"
+  }
+}
