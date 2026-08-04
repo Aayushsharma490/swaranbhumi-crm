@@ -39,8 +39,8 @@ services:
     depends_on:
       - postgres
       - redis
-    expose:
-      - "5000"
+    ports:
+      - "5000:5000"
     volumes:
       - backend_uploads:/app/uploads
       - backend_logs:/app/logs
