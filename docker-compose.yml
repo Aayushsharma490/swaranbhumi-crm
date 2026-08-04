@@ -25,8 +25,8 @@ services:
 
   backend:
     build:
-      context: ./apps/backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/backend/Dockerfile
     container_name: crm-backend
     environment:
       - NODE_ENV=production
