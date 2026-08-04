@@ -1,9 +1,10 @@
-import { app, BrowserWindow, ipcMain, Notification } from 'electron';
+import { app, BrowserWindow, ipcMain, Notification, Tray, Menu, nativeImage } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
 
 let mainWindow: BrowserWindow | null = null;
-
+let tray: Tray | null = null;
+let isQuitting = false;
 function createWindow() {
   const isDev = process.env.NODE_ENV !== 'production' && !app.isPackaged;
 
@@ -39,13 +40,56 @@ function createWindow() {
     }
   });
 
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow?.hide();
+    }
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 }
 
+function createTray() {
+  // Use the icon from assets
+  const iconPath = path.join(__dirname, '../../assets/icon.ico');
+  try {
+    const icon = nativeImage.createFromPath(iconPath);
+    tray = new Tray(icon);
+    
+    const contextMenu = Menu.buildFromTemplate([
+      { 
+        label: 'Open CRM', 
+        click: () => {
+          mainWindow?.show();
+        }
+      },
+      { type: 'separator' },
+      { 
+        label: 'Quit', 
+        click: () => {
+          isQuitting = true;
+          app.quit();
+        }
+      }
+    ]);
+
+    tray.setToolTip('Swaranbhumi CRM (Running in background)');
+    tray.setContextMenu(contextMenu);
+
+    tray.on('click', () => {
+      mainWindow?.show();
+    });
+  } catch (err) {
+    console.error('Failed to create tray icon:', err);
+  }
+}
+
 app.whenReady().then(() => {
   createWindow();
+  createTray();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -55,9 +99,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  // Do nothing. The app stays running in the system tray until the user clicks Quit.
 });
 
 // Safe IPC channel triggers for system notifications
@@ -86,10 +128,20 @@ autoUpdater.on('checking-for-update', () => {
   console.log('Checking for Swaranbhumi CRM application updates...');
 });
 
-autoUpdater.on('update-available', () => {
+autoUpdater.on('update-available', (info) => {
   console.log('Update available! Downloading silently in the background...');
+  if (mainWindow) {
+    mainWindow.webContents.send('update_available');
+  }
 });
 
-autoUpdater.on('update-downloaded', () => {
+autoUpdater.on('update-downloaded', (info) => {
   console.log('Update downloaded. Ready to install upon next application restart.');
+  if (mainWindow) {
+    mainWindow.webContents.send('update_downloaded');
+  }
+});
+
+ipcMain.handle('restart-app-for-update', () => {
+  autoUpdater.quitAndInstall();
 });

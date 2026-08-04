@@ -19,6 +19,7 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 
 COPY package*.json ./
+RUN apk add --no-cache openssl
 RUN npm ci --only=production
 
 COPY --from=builder /app/dist ./dist

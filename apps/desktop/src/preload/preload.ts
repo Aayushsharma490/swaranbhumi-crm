@@ -7,4 +7,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   getEnvConfig: () => 
     ipcRenderer.invoke('get-env-config'),
+    
+  onUpdateAvailable: (callback: () => void) => {
+    ipcRenderer.on('update_available', () => callback());
+  },
+  
+  onUpdateDownloaded: (callback: () => void) => {
+    ipcRenderer.on('update_downloaded', () => callback());
+  },
+  
+  restartAppForUpdate: () => 
+    ipcRenderer.invoke('restart-app-for-update'),
 });

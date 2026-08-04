@@ -584,7 +584,7 @@ async function runHistoricalImport(userId: string) {
       const name = getMetaFieldValue(fieldData, ['fullname', 'name', 'naam', 'yourname']) || 'Facebook Lead';
       let phone = getMetaFieldValue(fieldData, ['phonenumber', 'phoneoflead', 'phone', 'contact', 'mobile', 'whatsapp']) || 'N/A';
       const email = getMetaFieldValue(fieldData, ['emailaddress', 'emailoflead', 'email', 'mail']) || null;
-      const city = getMetaFieldValue(fieldData, ['cityoflead', 'city', 'location', 'town', 'address', 'place']) || null;
+      const city = getMetaFieldValue(fieldData, ['cityoflead', 'city', 'location', 'town', 'address', 'place', 'district', 'message', 'comments']) || null;
       const state = getMetaFieldValue(fieldData, ['stateoflead', 'state', 'region', 'province']) || null;
       const budget = getMetaFieldValue(fieldData, ['budgetoflead', 'budget', 'price', 'investment', 'range']) || null;
       const project = getMetaFieldValue(fieldData, ['projectoflead', 'project', 'property', 'residency', 'phase', 'villa', 'plot', 'flat']) || null;
@@ -838,7 +838,7 @@ async function runLeadSynchronization(userId: string) {
       const name = getMetaFieldValue(fieldData, ['fullname', 'name', 'naam', 'yourname']) || 'Facebook Lead';
       let phone = getMetaFieldValue(fieldData, ['phonenumber', 'phoneoflead', 'phone', 'contact', 'mobile', 'whatsapp']) || 'N/A';
       const email = getMetaFieldValue(fieldData, ['emailaddress', 'emailoflead', 'email', 'mail']) || null;
-      const city = getMetaFieldValue(fieldData, ['cityoflead', 'city', 'location', 'town', 'address', 'place']) || null;
+      const city = getMetaFieldValue(fieldData, ['cityoflead', 'city', 'location', 'town', 'address', 'place', 'district', 'message', 'comments']) || null;
       const state = getMetaFieldValue(fieldData, ['stateoflead', 'state', 'region', 'province']) || null;
       const budget = getMetaFieldValue(fieldData, ['budgetoflead', 'budget', 'price', 'investment', 'range']) || null;
       const project = getMetaFieldValue(fieldData, ['projectoflead', 'project', 'property', 'residency', 'phase', 'villa', 'plot', 'flat']) || null;

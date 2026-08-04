@@ -51,6 +51,7 @@ export async function leadRoutes(fastify: FastifyInstance) {
     const employeeId = query.employeeId || '';
     const project = query.project || '';
     const age = query.age || '';
+    const campaign = query.campaign || '';
     
     // Pagination
     const page = parseInt(query.page || '1', 10);
@@ -80,6 +81,13 @@ export async function leadRoutes(fastify: FastifyInstance) {
     if (source) where.leadSource = source;
     if (project) where.project = project;
     if (assignedFilter) where.assignedEmployeeId = assignedFilter;
+    if (campaign) {
+      where.OR = [
+        ...(where.OR || []),
+        { facebookCampaign: { contains: campaign, mode: 'insensitive' } },
+        { facebookFormName: { contains: campaign, mode: 'insensitive' } }
+      ];
+    }
     if (age) {
       const days = parseInt(age, 10);
       if (!isNaN(days) && days > 0) {

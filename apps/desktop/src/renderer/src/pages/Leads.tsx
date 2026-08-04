@@ -48,6 +48,7 @@ export default function Leads() {
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [ageFilter, setAgeFilter] = useState('');
+  const [campaignFilter, setCampaignFilter] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [selectedLeadsForMerge, setSelectedLeadsForMerge] = useState<string[]>([]);
@@ -67,11 +68,11 @@ export default function Leads() {
 
   // Queries
   const { data: leadsData, isLoading: isLeadsLoading } = useQuery({
-    queryKey: ['leads', search, statusFilter, priorityFilter, ageFilter],
+    queryKey: ['leads', search, statusFilter, priorityFilter, ageFilter, campaignFilter],
     queryFn: async () => {
       const response = await axios.get(`${apiBaseUrl}/leads`, {
         headers: { Authorization: `Bearer ${accessToken}` },
-        params: { search, status: statusFilter, priority: priorityFilter, age: ageFilter }
+        params: { search, status: statusFilter, priority: priorityFilter, age: ageFilter, campaign: campaignFilter }
       });
       return response.data;
     }
@@ -237,23 +238,30 @@ export default function Leads() {
         <div className="p-5 border-b border-gray-150 flex flex-col md:flex-row gap-4 items-center justify-between bg-gray-50/50">
           
           {/* Searching */}
-          <div className="relative w-full md:w-64">
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+          <div className="relative w-full md:w-72">
+            <Search className="absolute left-3.5 top-2.5 w-4 h-4 text-gray-400" />
             <input 
               type="text" 
-              placeholder="Search leads..." 
+              placeholder="Search leads by name or phone..." 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="crm-input pl-9"
+              className="w-full bg-gray-100 hover:bg-gray-200 focus:bg-white border-transparent focus:border-brand-500 focus:ring-4 focus:ring-brand-500/20 text-gray-800 text-sm font-medium rounded-full py-2 pl-10 pr-4 transition-all outline-none placeholder:font-normal placeholder:text-gray-500 shadow-sm"
             />
           </div>
 
           {/* Filters */}
-          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto overflow-hidden">
+            <input 
+              type="text"
+              placeholder="Filter Campaign"
+              value={campaignFilter}
+              onChange={(e) => setCampaignFilter(e.target.value)}
+              className="crm-input !w-[140px] text-xs"
+            />
             <select 
               value={statusFilter} 
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="crm-select w-36"
+              className="crm-select !w-[130px] text-xs"
             >
               <option value="">All Statuses</option>
               <option value="NEW">New</option>
@@ -269,7 +277,7 @@ export default function Leads() {
             <select 
               value={priorityFilter} 
               onChange={(e) => setPriorityFilter(e.target.value)}
-              className="crm-select w-32"
+              className="crm-select !w-[120px] text-xs"
             >
               <option value="">All Priorities</option>
               <option value="LOW">Low</option>
@@ -280,7 +288,7 @@ export default function Leads() {
             <select 
               value={ageFilter} 
               onChange={(e) => setAgeFilter(e.target.value)}
-              className="crm-select w-32"
+              className="crm-select !w-[110px] text-xs"
             >
               <option value="">All Time</option>
               <option value="1">Today</option>
@@ -323,17 +331,16 @@ export default function Leads() {
             </div>
           ) : (
             <table className="w-full text-left border-collapse text-sm">
-              <thead className="bg-gray-50 border-b border-gray-150 text-xs font-semibold text-gray-500 uppercase tracking-wider sticky top-0 z-10">
+              <thead className="bg-slate-800 border-b border-slate-900 sticky top-0 z-10 shadow-sm">
                 <tr>
-                  <th className="py-3 px-4 w-12 text-center">Select</th>
-                  <th className="py-3 px-4">Name</th>
-                  <th className="py-3 px-4">Contact</th>
-                  <th className="py-3 px-4">Message / District</th>
-                  <th className="py-3 px-4">Campaign</th>
-                  <th className="py-3 px-4">Priority</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Assigned Agent</th>
-                  <th className="py-3 px-4 text-center">Quick Actions</th>
+                  <th className="py-3 px-3 text-left text-[11px] font-bold text-white uppercase tracking-wider">Lead Info</th>
+                  <th className="py-3 px-3 text-left text-[11px] font-bold text-white uppercase tracking-wider">Contact</th>
+                  <th className="py-3 px-3 text-left text-[11px] font-bold text-white uppercase tracking-wider">Message/District</th>
+                  <th className="py-3 px-3 text-left text-[11px] font-bold text-white uppercase tracking-wider">Campaign/Source</th>
+                  <th className="py-3 px-3 text-left text-[11px] font-bold text-white uppercase tracking-wider">Priority</th>
+                  <th className="py-3 px-3 text-left text-[11px] font-bold text-white uppercase tracking-wider">Status</th>
+                  <th className="py-3 px-3 text-left text-[11px] font-bold text-white uppercase tracking-wider">Assignee</th>
+                  <th className="py-3 px-3 text-center text-[11px] font-bold text-white uppercase tracking-wider">Quick Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -350,7 +357,7 @@ export default function Leads() {
                       onClick={() => setSelectedLeadId(lead.id)}
                       className={`hover:bg-brand-50/50 cursor-pointer transition ${isSelected ? 'bg-brand-100/30' : (isNew ? 'bg-amber-50/30' : '')}`}
                     >
-                      <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                      <td className="py-2.5 px-3 text-center" onClick={(e) => e.stopPropagation()}>
                         <input 
                           type="checkbox" 
                           checked={isChecked}
@@ -358,15 +365,19 @@ export default function Leads() {
                           className="rounded border-gray-300 text-brand-500 focus:ring-brand-500 w-4 h-4 cursor-pointer"
                         />
                       </td>
-                      <td className="py-3 px-4 font-bold text-gray-800">{lead.name}</td>
-                      <td className="py-3 px-4 text-gray-500 font-mono text-xs">
+                      <td className="py-2.5 px-3 font-bold text-gray-800 text-xs">{lead.name}</td>
+                      <td className="py-2.5 px-3 text-gray-500 font-mono text-[11px]">
                         {lead.phone}
-                        {lead.email && <div className="text-[10px] text-gray-400 font-sans">{lead.email}</div>}
+                        {lead.email && <div className="text-[9px] text-gray-400 font-sans mt-0.5">{lead.email}</div>}
                       </td>
-                      <td className="py-3 px-4 text-gray-600 font-medium text-xs max-w-[200px] truncate" title={lead.city || ''}>{lead.city || 'N/A'}</td>
-                      <td className="py-3 px-4 text-gray-600 text-sm">{lead.facebookCampaign ? lead.facebookCampaign.replace('Lead Generation - ', '') : (lead.project || 'N/A')}</td>
-                      <td className="py-3 px-4">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      <td className="py-2.5 px-3 text-gray-600 font-medium text-xs max-w-[180px] whitespace-normal break-words" title={lead.city || ''}>
+                        <div className="line-clamp-2 leading-snug">{lead.city || 'N/A'}</div>
+                      </td>
+                      <td className="py-2.5 px-3 text-gray-600 text-xs font-medium">
+                        <div className="line-clamp-1 max-w-[150px]">{lead.facebookCampaign ? lead.facebookCampaign.replace('Lead Generation - ', '') : (lead.project || 'N/A')}</div>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wide ${
                           lead.priority === 'HIGH' ? 'bg-red-50 text-red-600' :
                           lead.priority === 'MEDIUM' ? 'bg-amber-50 text-amber-600' :
                           'bg-gray-100 text-gray-600'
@@ -374,8 +385,8 @@ export default function Leads() {
                           {lead.priority}
                         </span>
                       </td>
-                      <td className="py-3 px-4">
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                      <td className="py-2.5 px-3">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                           lead.status === 'NEW' ? 'bg-brand-100 text-brand-700' :
                           lead.status === 'BOOKED' ? 'bg-green-100 text-green-700' :
                           lead.status === 'LOST' ? 'bg-red-100 text-red-700' :
@@ -385,11 +396,11 @@ export default function Leads() {
                           {lead.status}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-gray-600 font-medium text-xs">
-                        {lead.assignedEmployee?.name || 'Unassigned'}
+                      <td className="py-2.5 px-3 text-gray-600 font-medium text-[11px]">
+                        <div className="line-clamp-1 max-w-[100px]">{lead.assignedEmployee?.name || 'Unassigned'}</div>
                       </td>
-                      <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-center gap-2">
+                      <td className="py-2.5 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-center gap-1">
                           <button 
                             onClick={() => quickActionMutation.mutate({ leadId: lead.id, action: 'MISSED' })}
                             className="p-1.5 text-gray-400 hover:text-amber-500 hover:bg-amber-50 rounded transition group relative"
@@ -551,6 +562,21 @@ export default function Leads() {
                   >
                     Add
                   </button>
+                </div>
+                
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {['Interested', 'Call Back Later', 'Not Reachable', 'Switched Off', 'Not Interested'].map(qn => (
+                    <button
+                      key={qn}
+                      onClick={() => {
+                        setNoteContent(qn);
+                        addNoteMutation.mutate(qn);
+                      }}
+                      className="px-2 py-1 text-[9px] font-semibold bg-gray-100 text-gray-600 hover:bg-brand-50 hover:text-brand-600 rounded-full transition"
+                    >
+                      {qn}
+                    </button>
+                  ))}
                 </div>
 
                 <div className="space-y-2.5 max-h-40 overflow-y-auto">

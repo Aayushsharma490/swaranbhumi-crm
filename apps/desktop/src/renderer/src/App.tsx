@@ -17,6 +17,9 @@ declare global {
     electronAPI?: {
       sendNotification: (payload: { title: string; body: string }) => Promise<{ success: boolean; error?: string }>;
       getEnvConfig: () => Promise<{ isPackaged: boolean; version: string }>;
+      onUpdateAvailable: (cb: () => void) => void;
+      onUpdateDownloaded: (cb: () => void) => void;
+      restartAppForUpdate: () => void;
     };
   }
 }
@@ -27,6 +30,10 @@ export default function App() {
   const [socketConnected, setSocketConnected] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
+  // Updater State
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [updateDownloaded, setUpdateDownloaded] = useState(false);
 
   // Sync state tracking
   const [syncStatus, setSyncStatus] = useState<'IDLE' | 'SYNCING' | 'ERROR'>('IDLE');
@@ -138,6 +145,19 @@ export default function App() {
 
     performAutoLogin();
   }, [accessToken, apiBaseUrl, setAuth, hasCheckedAutoLogin]);
+
+  // Updater Event Listeners
+  useEffect(() => {
+    if (window.electronAPI) {
+      window.electronAPI.onUpdateAvailable(() => {
+        setUpdateAvailable(true);
+      });
+      window.electronAPI.onUpdateDownloaded(() => {
+        setUpdateAvailable(false);
+        setUpdateDownloaded(true);
+      });
+    }
+  }, []);
 
   // 2. Lead Sync startup trigger and recurring loop (5 min interval)
   useEffect(() => {
@@ -446,6 +466,34 @@ export default function App() {
       {activePage === 'bookings' && <Bookings />}
       {activePage === 'reports' && <Reports />}
       {activePage === 'settings' && <Settings />}
+
+      {/* Auto Updater Modal */}
+      {updateDownloaded && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-gray-200 rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden text-center p-8 animate-fade-in">
+            <div className="w-16 h-16 bg-brand-100 text-brand-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">Update Ready!</h3>
+            <p className="text-xs text-gray-500 mb-6">A new version of Swaranbhumi CRM has been downloaded and is ready to install.</p>
+            <button 
+              onClick={() => window.electronAPI?.restartAppForUpdate()}
+              className="w-full py-3 bg-brand-600 hover:bg-brand-700 rounded-xl text-xs font-bold text-white shadow-lg transition-all active:scale-[0.98]"
+            >
+              Restart & Install Update
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {updateAvailable && !updateDownloaded && (
+        <div className="fixed bottom-4 right-4 z-50 bg-slate-900 text-white text-[10px] font-semibold px-4 py-2 rounded-full shadow-lg flex items-center gap-2 animate-fade-in border border-slate-700">
+          <div className="w-2.5 h-2.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          Downloading new update in background...
+        </div>
+      )}
     </Layout>
   );
 }

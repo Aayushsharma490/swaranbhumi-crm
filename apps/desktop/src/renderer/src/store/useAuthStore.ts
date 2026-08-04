@@ -21,9 +21,9 @@ interface AuthState {
 // Retrieve initial API base URL from localStorage if set, default to production domain
 const getStoredApiBase = () => {
   try {
-    return localStorage.getItem('SB_CRM_API_URL') || 'https://api.swaranbhumi.com';
+    return localStorage.getItem('SB_CRM_API_URL') || 'https://api.swarnbhumi.com';
   } catch {
-    return 'https://api.swaranbhumi.com';
+    return 'https://api.swarnbhumi.com';
   }
 };
 

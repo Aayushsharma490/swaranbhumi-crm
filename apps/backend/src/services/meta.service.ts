@@ -187,7 +187,7 @@ export class MetaService {
       let phone = getMetaFieldValue(fieldData, ['phonenumber', 'phone_number', 'phoneoflead', 'phone', 'contact', 'mobile', 'whatsapp']);
       const email = getMetaFieldValue(fieldData, ['emailaddress', 'email', 'mail']) || null;
       // 'which_district_are_you_from' is the exact question key from the Dealership Form
-      const city = getMetaFieldValue(fieldData, ['whichdistrictareyoufrom', 'which_district_are_you_from', 'district', 'cityoflead', 'city', 'location', 'town', 'place']) || null;
+      const city = getMetaFieldValue(fieldData, ['whichdistrictareyoufrom', 'which_district_are_you_from', 'district', 'cityoflead', 'city', 'location', 'town', 'place', 'message', 'comments']) || null;
 
       phone = phone.replace(/^p:/i, '').replace(/\s+/g, ''); // Strip p: prefix and spaces
 
