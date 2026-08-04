@@ -16,8 +16,7 @@ COPY apps/backend ./apps/backend
 
 # Generate Prisma Client and Build
 RUN npm run build:shared
-RUN npm install --workspace=apps/backend @prisma/client@6.0.0 --no-save
-RUN cd apps/backend && npx prisma generate
+RUN npx prisma generate --schema=apps/backend/prisma/schema.prisma
 RUN npm run build:backend
 
 # Production image
