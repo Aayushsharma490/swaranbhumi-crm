@@ -11,7 +11,6 @@ COPY apps/backend/package*.json ./apps/backend/
 RUN npm ci
 
 # Copy source code
-COPY tsconfig.json ./
 COPY packages/shared ./packages/shared
 COPY apps/backend ./apps/backend
 
