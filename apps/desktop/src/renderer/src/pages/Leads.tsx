@@ -47,7 +47,8 @@ export default function Leads() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
-  const [ageFilter, setAgeFilter] = useState('');
+  const [startDateFilter, setStartDateFilter] = useState('');
+  const [endDateFilter, setEndDateFilter] = useState('');
   const [campaignFilter, setCampaignFilter] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
@@ -68,11 +69,11 @@ export default function Leads() {
 
   // Queries
   const { data: leadsData, isLoading: isLeadsLoading } = useQuery({
-    queryKey: ['leads', search, statusFilter, priorityFilter, ageFilter, campaignFilter],
+    queryKey: ['leads', search, statusFilter, priorityFilter, startDateFilter, endDateFilter, campaignFilter],
     queryFn: async () => {
       const response = await axios.get(`${apiBaseUrl}/leads`, {
         headers: { Authorization: `Bearer ${accessToken}` },
-        params: { search, status: statusFilter, priority: priorityFilter, age: ageFilter, campaign: campaignFilter }
+        params: { search, status: statusFilter, priority: priorityFilter, startDate: startDateFilter, endDate: endDateFilter, campaign: campaignFilter }
       });
       return response.data;
     }
@@ -285,17 +286,31 @@ export default function Leads() {
               <option value="HIGH">High</option>
             </select>
 
-            <select 
-              value={ageFilter} 
-              onChange={(e) => setAgeFilter(e.target.value)}
-              className="crm-select !w-[110px] text-xs"
-            >
-              <option value="">All Time</option>
-              <option value="1">Today</option>
-              <option value="3">Last 3 Days</option>
-              <option value="7">Last 7 Days</option>
-              <option value="30">Last 30 Days</option>
-            </select>
+            <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg px-2 py-1">
+              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">From</span>
+              <input 
+                type="date" 
+                value={startDateFilter}
+                onChange={(e) => setStartDateFilter(e.target.value)}
+                className="text-xs text-gray-600 bg-transparent outline-none border-none p-0 cursor-pointer"
+              />
+              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider ml-1">To</span>
+              <input 
+                type="date" 
+                value={endDateFilter}
+                onChange={(e) => setEndDateFilter(e.target.value)}
+                className="text-xs text-gray-600 bg-transparent outline-none border-none p-0 cursor-pointer"
+              />
+              {(startDateFilter || endDateFilter) && (
+                <button 
+                  onClick={() => { setStartDateFilter(''); setEndDateFilter(''); }}
+                  className="ml-1 p-0.5 text-gray-400 hover:text-red-500 rounded-full"
+                  title="Clear Dates"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
 
             {/* Merge duplicates trigger */}
             {selectedLeadsForMerge.length === 2 && (
@@ -374,7 +389,11 @@ export default function Leads() {
                         <div className="line-clamp-2 leading-snug">{lead.city || 'N/A'}</div>
                       </td>
                       <td className="py-2.5 px-3 text-gray-600 text-xs font-medium">
-                        <div className="line-clamp-1 max-w-[150px]">{lead.facebookCampaign ? lead.facebookCampaign.replace('Lead Generation - ', '') : (lead.project || 'N/A')}</div>
+                        <div className="line-clamp-1 max-w-[150px]">
+                          {lead.facebookCampaign 
+                            ? lead.facebookCampaign.replace('Lead Generation - ', '') 
+                            : (lead.facebookFormName || lead.project || 'N/A')}
+                        </div>
                       </td>
                       <td className="py-2.5 px-3">
                         <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wide ${
