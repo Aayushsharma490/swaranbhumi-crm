@@ -29,9 +29,9 @@ export class WhatsappService {
         }
       );
 
-      // Filter only approved templates
+      // Filter only approved/active templates
       const approvedTemplates = response.data.data.filter(
-        (t: any) => t.status === 'APPROVED'
+        (t: any) => t.status === 'APPROVED' || t.status === 'ACTIVE'
       );
 
       return approvedTemplates;
