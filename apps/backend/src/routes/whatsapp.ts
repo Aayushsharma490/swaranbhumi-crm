@@ -66,6 +66,7 @@ export default async function whatsappRoutes(fastify: FastifyInstance) {
       campaignName: z.string(),
       templateName: z.string(),
       templateLang: z.string().default('en'),
+      imageUrl: z.string().optional(),
       recipients: z.array(z.object({
         phone: z.string(),
         leadId: z.string().optional()
@@ -77,7 +78,7 @@ export default async function whatsappRoutes(fastify: FastifyInstance) {
       return reply.status(400).send({ error: 'Invalid data format' });
     }
 
-    const { campaignName, templateName, templateLang, recipients } = parsed.data;
+    const { campaignName, templateName, templateLang, imageUrl, recipients } = parsed.data;
 
     if (recipients.length === 0) {
       return reply.status(400).send({ error: 'No recipients provided' });
@@ -111,7 +112,8 @@ export default async function whatsappRoutes(fastify: FastifyInstance) {
         phone: recipient.phone,
         templateName,
         templateLang,
-        logId: log.id
+        logId: log.id,
+        imageUrl
       });
     }
 

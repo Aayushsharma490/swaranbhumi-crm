@@ -17,6 +17,7 @@ interface WhatsappJobData {
   templateName: string;
   templateLang: string;
   logId: string;
+  imageUrl?: string;
 }
 
 export class WhatsappQueueService {
@@ -26,10 +27,10 @@ export class WhatsappQueueService {
     this.worker = new Worker(
       'whatsapp-marketing-queue',
       async (job: Job<WhatsappJobData>) => {
-        const { campaignId, phone, templateName, templateLang, logId } = job.data;
+        const { campaignId, phone, templateName, templateLang, logId, imageUrl } = job.data;
         try {
           // Send message via Meta API
-          const result = await WhatsappService.sendTemplateMessage(phone, templateName, templateLang);
+          const result = await WhatsappService.sendTemplateMessage(phone, templateName, templateLang, imageUrl);
 
           // Update log to SENT
           await prisma.whatsappMessageLog.update({

@@ -19,6 +19,7 @@ export default function WhatsappMarketing() {
   // Campaign State
   const [campaignName, setCampaignName] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
   const [audienceType, setAudienceType] = useState<'CRM' | 'EXCEL'>('CRM');
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [parsedRecipients, setParsedRecipients] = useState<{name: string, phone: string}[]>([]);
@@ -101,6 +102,7 @@ export default function WhatsappMarketing() {
       alert('Campaign started successfully!');
       setCampaignName('');
       setSelectedTemplate('');
+      setImageUrl('');
       setCsvFile(null);
       setParsedRecipients([]);
       setActiveTab('HISTORY');
@@ -170,6 +172,7 @@ export default function WhatsappMarketing() {
       campaignName,
       templateName: selectedTemplate,
       templateLang: lang,
+      imageUrl: imageUrl.trim() || undefined,
       recipients: finalRecipients
     });
   };
@@ -256,6 +259,18 @@ export default function WhatsappMarketing() {
                         {templates.find((t:any) => t.name === selectedTemplate)?.components?.find((c:any) => c.type === 'BODY')?.text || 'No preview available'}
                       </div>
                     )}
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-1">Image URL (Optional)</label>
+                    <input 
+                      type="url" 
+                      value={imageUrl}
+                      onChange={e => setImageUrl(e.target.value)}
+                      placeholder="e.g. https://i.ibb.co/example.jpg (Only if template has Image Header)" 
+                      className="crm-input" 
+                    />
+                    <p className="text-[10px] text-gray-500 mt-1">If your template has a media header, paste the direct public link to the image here.</p>
                   </div>
                 </div>
 

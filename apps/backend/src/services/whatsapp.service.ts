@@ -51,7 +51,8 @@ export class WhatsappService {
   public static async sendTemplateMessage(
     toPhone: string,
     templateName: string,
-    templateLang: string = 'en'
+    templateLang: string = 'en',
+    imageUrl?: string
   ) {
     try {
       const settings = await this.getSettings();
@@ -65,7 +66,7 @@ export class WhatsappService {
         cleanPhone = '91' + cleanPhone; // Default to India if only 10 digits
       }
 
-      const payload = {
+      const payload: any = {
         messaging_product: 'whatsapp',
         to: cleanPhone,
         type: 'template',
@@ -76,6 +77,22 @@ export class WhatsappService {
           }
         }
       };
+
+      if (imageUrl) {
+        payload.template.components = [
+          {
+            type: 'header',
+            parameters: [
+              {
+                type: 'image',
+                image: {
+                  link: imageUrl
+                }
+              }
+            ]
+          }
+        ];
+      }
 
       const response = await axios.post(
         `https://graph.facebook.com/v20.0/${settings.phoneNumberId}/messages`,

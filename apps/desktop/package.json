@@ -1,6 +1,6 @@
 {
   "name": "swaranbhumi-crm-desktop",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Enterprise CRM Desktop Application for Swaranbhumi",
   "main": "dist/main/main.js",
   "scripts": {
@@ -50,8 +50,8 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "swaranbhumi-developer",
-        "repo": "crm-desktop"
+        "owner": "Aayushsharma490",
+        "repo": "swaranbhumi-crm"
       }
     ],
     "directories": {
