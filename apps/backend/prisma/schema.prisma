@@ -187,3 +187,38 @@ model SystemSettings {
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 }
+
+model WhatsappSettings {
+  id              String   @id @default("default")
+  accessToken     String   @db.Text
+  phoneNumberId   String
+  wabaId          String   // WhatsApp Business Account ID
+  updatedAt       DateTime @updatedAt
+}
+
+model WhatsappCampaign {
+  id             String   @id @default(uuid())
+  name           String
+  templateName   String
+  templateLang   String   @default("en")
+  status         String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  totalRecipients Int     @default(0)
+  sentCount      Int      @default(0)
+  failedCount    Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  logs           WhatsappMessageLog[]
+}
+
+model WhatsappMessageLog {
+  id           String   @id @default(uuid())
+  campaignId   String
+  campaign     WhatsappCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  phone        String
+  leadId       String?  // Optional, if sent to a CRM lead
+  status       String   @default("QUEUED") // QUEUED, SENT, FAILED, DELIVERED, READ
+  errorMessage String?  @db.Text
+  messageId    String?  // Meta's message ID
+  createdAt    DateTime @default(now())
+}

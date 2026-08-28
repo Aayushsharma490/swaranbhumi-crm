@@ -10,6 +10,7 @@ import Employees from './pages/Employees';
 import Bookings from './pages/Bookings';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
+import WhatsappMarketing from './pages/WhatsappMarketing';
 import { ShieldAlert } from 'lucide-react';
 
 declare global {
@@ -465,6 +466,7 @@ export default function App() {
       {activePage === 'employees' && <Employees />}
       {activePage === 'bookings' && <Bookings />}
       {activePage === 'reports' && <Reports />}
+      {activePage === 'whatsapp' && <WhatsappMarketing />}
       {activePage === 'settings' && <Settings />}
 
       {/* Auto Updater Modal */}

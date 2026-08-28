@@ -24,11 +24,13 @@ import { customerRoutes } from './routes/customers';
 import { reportRoutes } from './routes/reports';
 import { metaRoutes } from './routes/meta';
 import { settingsRoutes } from './routes/settings';
+import whatsappRoutes from './routes/whatsapp';
 
 // Services & Queues
 import { SocketService } from './services/socket.service';
 import { apiLogger, errorLogger, metaLogger } from './services/logger.service';
 import { MetaService } from './services/meta.service';
+import { WhatsappQueueService } from './services/whatsapp-queue.service';
 import { redisConnection } from './queues/lead.queue';
 import { prisma } from './db';
 
@@ -151,6 +153,7 @@ fastify.register(customerRoutes, { prefix: '/customers' });
 fastify.register(reportRoutes, { prefix: '/reports' });
 fastify.register(metaRoutes, { prefix: '/meta' });
 fastify.register(settingsRoutes, { prefix: '/settings' });
+fastify.register(whatsappRoutes, { prefix: '/whatsapp' });
 
 // Global Error Handler
 fastify.setErrorHandler((error: any, request, reply) => {
@@ -183,6 +186,9 @@ const start = async () => {
     
     // Attach Socket.IO to the Fastify instance
     SocketService.initialize(fastify);
+
+    // Initialize Background Queues
+    WhatsappQueueService.initialize();
 
     // Startup health check for Meta API Integration
     MetaService.checkMetaApiHealth().then((health) => {

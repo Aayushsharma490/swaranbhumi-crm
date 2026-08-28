@@ -9,7 +9,8 @@ import {
   LogOut, 
   Shield, 
   Radio, 
-  FolderLock
+  FolderLock,
+  MessageCircle
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -47,6 +48,7 @@ export default function Layout({
     { id: 'employees', name: 'Employees', icon: UserCheck, roles: ['ADMIN', 'MANAGER'] },
     { id: 'bookings', name: 'Bookings & Customers', icon: FolderLock, roles: ['ADMIN', 'MANAGER', 'EXECUTIVE'] },
     { id: 'reports', name: 'Reports & Exports', icon: TrendingUp, roles: ['ADMIN', 'MANAGER', 'EXECUTIVE'] },
+    { id: 'whatsapp', name: 'WhatsApp Marketing', icon: MessageCircle, roles: ['ADMIN', 'MANAGER'] },
     { id: 'settings', name: 'Meta & System Settings', icon: Settings, roles: ['ADMIN'] },
   ];
 
