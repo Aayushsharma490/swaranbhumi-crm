@@ -225,3 +225,30 @@ model WhatsappMessageLog {
   messageId    String?  // Meta's message ID
   createdAt    DateTime @default(now())
 }
+
+model WhatsappContact {
+  id            String   @id @default(uuid())
+  phone         String   @unique
+  name          String?
+  lastMessageAt DateTime @default(now())
+  unreadCount   Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  messages      WhatsappChatMessage[]
+}
+
+model WhatsappChatMessage {
+  id        String   @id @default(uuid())
+  contactId String
+  contact   WhatsappContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  messageId String?  @unique // Meta message ID
+  direction String   // INBOUND or OUTBOUND
+  type      String   @default("text") // text, image, document, etc
+  content   String   @db.Text
+  status    String   @default("SENT") // DELIVERED, READ, FAILED, RECEIVED
+  createdAt DateTime @default(now())
+
+  @@index([contactId])
+  @@index([createdAt])
+}

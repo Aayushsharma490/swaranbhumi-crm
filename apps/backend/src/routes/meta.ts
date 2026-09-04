@@ -81,6 +81,91 @@ export async function metaRoutes(fastify: FastifyInstance) {
               }
             }
           }
+        } else if (body && body.object === 'whatsapp_business_account') {
+          const entries = body.entry || [];
+          for (const entry of entries) {
+            const changes = entry.changes || [];
+            for (const change of changes) {
+              const value = change.value;
+              if (value.messages && value.messages.length > 0) {
+                // Handle Incoming WhatsApp Messages
+                const contacts = value.contacts || [];
+                const messages = value.messages || [];
+
+                for (const msg of messages) {
+                  const phone = msg.from;
+                  const messageId = msg.id;
+                  const type = msg.type;
+                  let text = '';
+                  
+                  if (type === 'text') text = msg.text.body;
+                  else text = `[${type} message received]`;
+
+                  // Find contact profile name
+                  const contactProfile = contacts.find((c: any) => c.wa_id === phone);
+                  const name = contactProfile?.profile?.name || 'Unknown';
+
+                  // Upsert Contact
+                  prisma.whatsappContact.upsert({
+                    where: { phone },
+                    update: { 
+                      name, 
+                      lastMessageAt: new Date(),
+                      unreadCount: { increment: 1 }
+                    },
+                    create: { 
+                      phone, 
+                      name, 
+                      lastMessageAt: new Date(),
+                      unreadCount: 1 
+                    }
+                  }).then(async (contact) => {
+                    // Create Message
+                    const chatMsg = await prisma.whatsappChatMessage.create({
+                      data: {
+                        contactId: contact.id,
+                        direction: 'INBOUND',
+                        type,
+                        content: text,
+                        messageId,
+                        status: 'RECEIVED'
+                      }
+                    });
+
+                    // Broadcast via Socket
+                    SocketService.broadcast('WHATSAPP_MESSAGE_RECEIVED', {
+                      contact,
+                      message: chatMsg
+                    });
+                  }).catch(err => {
+                    errorLogger.error(`Failed to process incoming WhatsApp message: ${err.message}`);
+                  });
+                }
+              }
+
+              if (value.statuses && value.statuses.length > 0) {
+                // Handle Message Status Updates (Delivered, Read, Failed)
+                for (const statusObj of value.statuses) {
+                  const messageId = statusObj.id;
+                  const statusStr = statusObj.status.toUpperCase(); // SENT, DELIVERED, READ, FAILED
+                  
+                  prisma.whatsappChatMessage.update({
+                    where: { messageId },
+                    data: { status: statusStr }
+                  }).then((updated) => {
+                    SocketService.broadcast('WHATSAPP_MESSAGE_STATUS', updated);
+                  }).catch(() => {
+                    // Ignore, message might belong to a template campaign (WhatsappMessageLog)
+                    // Let's also update WhatsappMessageLog just in case
+                    prisma.whatsappMessageLog.updateMany({
+                      where: { messageId },
+                      data: { status: statusStr }
+                    }).catch(() => {});
+                  });
+                }
+              }
+            }
+          }
         }
       } catch (err: any) {
         errorLogger.error(`Error processing webhook async body: ${err.message}`, { stack: err.stack });

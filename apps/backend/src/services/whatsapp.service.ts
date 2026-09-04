@@ -115,4 +115,55 @@ export class WhatsappService {
       throw new Error(msg);
     }
   }
+
+  /**
+   * Sends a direct text message via Meta Cloud API.
+   * @param toPhone Phone number with country code (no '+')
+   * @param text The message text content
+   */
+  public static async sendDirectMessage(toPhone: string, text: string) {
+    try {
+      const settings = await this.getSettings();
+      if (!settings || !settings.phoneNumberId || !settings.accessToken) {
+        throw new Error('WhatsApp settings not configured properly.');
+      }
+
+      // Ensure phone is clean and has country code
+      let cleanPhone = toPhone.replace(/\D/g, '');
+      if (cleanPhone.length === 10) {
+        cleanPhone = '91' + cleanPhone; // Default to India if only 10 digits
+      }
+
+      const payload = {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: cleanPhone,
+        type: 'text',
+        text: {
+          preview_url: false,
+          body: text
+        }
+      };
+
+      const response = await axios.post(
+        `https://graph.facebook.com/v20.0/${settings.phoneNumberId}/messages`,
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${settings.accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      return {
+        success: true,
+        messageId: response.data.messages?.[0]?.id
+      };
+    } catch (error: any) {
+      const msg = error.response?.data?.error?.message || error.message;
+      metaLogger.error(`Failed to send WhatsApp direct message to ${toPhone}: ${msg}`);
+      throw new Error(msg);
+    }
+  }
 }

@@ -49,6 +49,7 @@ export default function Layout({
     { id: 'bookings', name: 'Bookings & Customers', icon: FolderLock, roles: ['ADMIN', 'MANAGER', 'EXECUTIVE'] },
     { id: 'reports', name: 'Reports & Exports', icon: TrendingUp, roles: ['ADMIN', 'MANAGER', 'EXECUTIVE'] },
     { id: 'whatsapp', name: 'WhatsApp Marketing', icon: MessageCircle, roles: ['ADMIN', 'MANAGER'] },
+    { id: 'whatsapp_chat', name: 'WhatsApp Chat', icon: MessageCircle, roles: ['ADMIN', 'MANAGER', 'EXECUTIVE'] },
     { id: 'settings', name: 'Meta & System Settings', icon: Settings, roles: ['ADMIN'] },
   ];
 

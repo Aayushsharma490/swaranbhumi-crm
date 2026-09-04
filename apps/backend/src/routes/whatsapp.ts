@@ -162,4 +162,94 @@ export default async function whatsappRoutes(fastify: FastifyInstance) {
 
     return { success: true, campaignId: campaign.id, message: 'Campaign started successfully' };
   });
+
+  // =====================
+  // WHATSAPP CHAT INBOX
+  // =====================
+
+  // GET /chat/contacts
+  fastify.get('/chat/contacts', async (request, reply) => {
+    const contacts = await prisma.whatsappContact.findMany({
+      orderBy: { lastMessageAt: 'desc' },
+      take: 50,
+      include: {
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1
+        }
+      }
+    });
+    return contacts;
+  });
+
+  // GET /chat/messages/:phone
+  fastify.get('/chat/messages/:phone', async (request: any, reply) => {
+    const { phone } = request.params;
+    const contact = await prisma.whatsappContact.findUnique({
+      where: { phone }
+    });
+
+    if (!contact) {
+      return [];
+    }
+
+    const messages = await prisma.whatsappChatMessage.findMany({
+      where: { contactId: contact.id },
+      orderBy: { createdAt: 'asc' },
+      take: 100
+    });
+
+    return messages;
+  });
+
+  // POST /chat/send
+  fastify.post('/chat/send', async (request, reply) => {
+    const schema = z.object({
+      phone: z.string(),
+      text: z.string()
+    });
+
+    const parsed = schema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'Invalid data' });
+    }
+
+    const { phone, text } = parsed.data;
+
+    try {
+      const response = await WhatsappService.sendDirectMessage(phone, text);
+
+      // Save to database
+      const contact = await prisma.whatsappContact.upsert({
+        where: { phone },
+        update: { lastMessageAt: new Date() },
+        create: { phone, name: 'Unknown' } // Customer name is fetched on inbound
+      });
+
+      const msg = await prisma.whatsappChatMessage.create({
+        data: {
+          contactId: contact.id,
+          direction: 'OUTBOUND',
+          type: 'text',
+          content: text,
+          messageId: response.messageId,
+          status: 'SENT'
+        }
+      });
+
+      return { success: true, message: msg };
+    } catch (err: any) {
+      return reply.status(500).send({ error: err.message });
+    }
+  });
+
+  // POST /chat/mark-read/:phone
+  fastify.post('/chat/mark-read/:phone', async (request: any, reply) => {
+    const { phone } = request.params;
+    await prisma.whatsappContact.update({
+      where: { phone },
+      data: { unreadCount: 0 }
+    });
+    return { success: true };
+  });
 }

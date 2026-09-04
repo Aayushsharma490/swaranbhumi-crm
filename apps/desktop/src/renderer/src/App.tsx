@@ -11,6 +11,7 @@ import Bookings from './pages/Bookings';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import WhatsappMarketing from './pages/WhatsappMarketing';
+import WhatsappChat from './pages/WhatsappChat';
 import { ShieldAlert } from 'lucide-react';
 
 declare global {
@@ -467,6 +468,7 @@ export default function App() {
       {activePage === 'bookings' && <Bookings />}
       {activePage === 'reports' && <Reports />}
       {activePage === 'whatsapp' && <WhatsappMarketing />}
+      {activePage === 'whatsapp_chat' && <WhatsappChat />}
       {activePage === 'settings' && <Settings />}
 
       {/* Auto Updater Modal */}

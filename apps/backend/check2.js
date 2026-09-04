@@ -1,0 +1,1 @@
+﻿const { PrismaClient } = require('@prisma/client'); const prisma = new PrismaClient(); async function run() { const logs = await prisma.whatsappMessageLog.findMany({ where: { status: 'FAILED' }, orderBy: { createdAt: 'desc' }, take: 1 }); console.log('ERROR:', logs[0].errorMessage); await prisma.$disconnect(); } run();
