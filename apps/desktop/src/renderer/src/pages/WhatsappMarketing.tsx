@@ -63,6 +63,17 @@ export default function WhatsappMarketing() {
     refetchInterval: activeTab === 'HISTORY' ? 5000 : false
   });
 
+  const { data: pendingStatus } = useQuery({
+    queryKey: ['whatsappPendingCampaigns'],
+    queryFn: async () => {
+      const response = await axios.get(`${apiBaseUrl}/whatsapp/campaign/pending`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      return response.data;
+    },
+    refetchInterval: activeTab === 'NEW_CAMPAIGN' ? 5000 : false
+  });
+
   const { data: leadsData } = useQuery({
     queryKey: ['leads'],
     queryFn: async () => {
@@ -110,6 +121,22 @@ export default function WhatsappMarketing() {
     },
     onError: (error: any) => {
       alert(`Error starting campaign: ${error.response?.data?.error || error.message}`);
+    }
+  });
+
+  const payCampaignMutation = useMutation({
+    mutationFn: async (payload: { campaignId: string, paymentProof: string }) => {
+      await axios.post(`${apiBaseUrl}/whatsapp/campaign/pay`, payload, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+    },
+    onSuccess: () => {
+      alert('Payment submitted! Campaign features unlocked.');
+      queryClient.invalidateQueries({ queryKey: ['whatsappPendingCampaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['whatsappCampaigns'] });
+    },
+    onError: (error: any) => {
+      alert(`Error unlocking campaign: ${error.response?.data?.error || error.message}`);
     }
   });
 
@@ -216,6 +243,44 @@ export default function WhatsappMarketing() {
                   <h3 className="font-bold text-amber-800">WhatsApp API Not Configured</h3>
                   <p className="text-sm text-amber-700 mt-1">Please go to API Settings and configure your Meta Cloud API credentials before starting a campaign.</p>
                   <button onClick={() => setActiveTab('SETTINGS')} className="mt-3 px-4 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-800 text-xs font-bold rounded-lg transition">Go to Settings</button>
+                </div>
+              </div>
+            ) : pendingStatus?.pending ? (
+              <div className="bg-white p-8 rounded-2xl border border-red-200 shadow-lg text-center">
+                <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-red-50">
+                  <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                </div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">Campaign Locked</h2>
+                <p className="text-sm text-gray-500 mb-6">You have an unpaid service charge from your previous campaign <b>({pendingStatus.campaign.name})</b>. Please clear the dues to unlock new campaigns.</p>
+                
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 mb-6 inline-block w-full max-w-sm text-left">
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="text-sm font-bold text-gray-500 uppercase tracking-wider">Amount Due:</span>
+                    <span className="text-2xl font-black text-red-600">₹{pendingStatus.campaign.costAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="border-t border-slate-200 pt-4 mb-4">
+                    <p className="text-xs text-gray-600 mb-2 font-semibold">Pay via UPI / PhonePe / GPay:</p>
+                    <p className="text-lg font-bold text-gray-800 mb-1">+91 7727038430</p>
+                    <p className="text-[10px] text-gray-500">(Send payment to Aayush)</p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase">Attach Screenshot / UTR (Optional)</label>
+                    <input type="text" id="paymentProofInput" placeholder="Paste UTR or Screenshot Link" className="crm-input text-xs" />
+                  </div>
+                </div>
+
+                <div>
+                  <button 
+                    onClick={() => {
+                      const proof = (document.getElementById('paymentProofInput') as HTMLInputElement)?.value || 'Offline Payment';
+                      payCampaignMutation.mutate({ campaignId: pendingStatus.campaign.id, paymentProof: proof });
+                    }}
+                    disabled={payCampaignMutation.isPending}
+                    className="px-8 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg transition active:scale-[0.98] disabled:opacity-50"
+                  >
+                    {payCampaignMutation.isPending ? 'Unlocking...' : 'Mark as Paid & Unlock'}
+                  </button>
                 </div>
               </div>
             ) : (

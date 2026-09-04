@@ -60,6 +60,36 @@ export default async function whatsappRoutes(fastify: FastifyInstance) {
     return campaigns;
   });
 
+  // GET Pending Campaigns
+  fastify.get('/campaign/pending', async (request, reply) => {
+    const pendingCampaign = await prisma.whatsappCampaign.findFirst({
+      where: { paymentStatus: 'PENDING' },
+      orderBy: { createdAt: 'desc' }
+    });
+    return { pending: !!pendingCampaign, campaign: pendingCampaign };
+  });
+
+  // POST Mark Campaign as Paid (Unlock)
+  fastify.post('/campaign/pay', async (request, reply) => {
+    const schema = z.object({
+      campaignId: z.string(),
+      paymentProof: z.string().optional()
+    });
+    
+    const parsed = schema.safeParse(request.body);
+    if (!parsed.success) return reply.status(400).send({ error: 'Invalid data' });
+
+    const campaign = await prisma.whatsappCampaign.update({
+      where: { id: parsed.data.campaignId },
+      data: {
+        paymentStatus: 'PAID',
+        paymentProof: parsed.data.paymentProof
+      }
+    });
+
+    return { success: true, message: 'Campaign unlocked successfully', campaign };
+  });
+
   // POST Create Campaign (Accepts JSON list of recipients from Frontend)
   fastify.post('/campaign/create', async (request, reply) => {
     const schema = z.object({
@@ -84,14 +114,27 @@ export default async function whatsappRoutes(fastify: FastifyInstance) {
       return reply.status(400).send({ error: 'No recipients provided' });
     }
 
+    // 0. Check if there are any unpaid campaigns
+    const unpaidCampaign = await prisma.whatsappCampaign.findFirst({
+      where: { paymentStatus: 'PENDING' }
+    });
+
+    if (unpaidCampaign) {
+      return reply.status(403).send({ error: 'Previous campaign service charge is pending. Please clear dues to start a new campaign.' });
+    }
+
     // 1. Create Campaign in DB
+    const cost = recipients.length * 0.20;
+    
     const campaign = await prisma.whatsappCampaign.create({
       data: {
         name: campaignName,
         templateName,
         templateLang,
         status: 'PROCESSING',
-        totalRecipients: recipients.length
+        totalRecipients: recipients.length,
+        costAmount: cost,
+        paymentStatus: 'PENDING'
       }
     });
 

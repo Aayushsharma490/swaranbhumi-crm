@@ -205,6 +205,9 @@ model WhatsappCampaign {
   totalRecipients Int     @default(0)
   sentCount      Int      @default(0)
   failedCount    Int      @default(0)
+  costAmount     Float    @default(0)
+  paymentStatus  String   @default("PAID") // PENDING, PAID, UNLOCKED
+  paymentProof   String?  @db.Text
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
