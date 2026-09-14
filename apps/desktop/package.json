@@ -1,6 +1,6 @@
 {
   "name": "swaranbhumi-crm-desktop",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Enterprise CRM Desktop Application for Swaranbhumi",
   "main": "dist/main/main.js",
   "scripts": {
