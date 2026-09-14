@@ -41,11 +41,22 @@ export class WhatsappQueueService {
             }
           });
 
-          // Increment success count in Campaign
-          await prisma.whatsappCampaign.update({
+          // Increment success count and update cost in Campaign
+          const updatedCampaign = await prisma.whatsappCampaign.update({
             where: { id: campaignId },
-            data: { sentCount: { increment: 1 } }
+            data: {
+              sentCount: { increment: 1 },
+              costAmount: { increment: 0.20 }
+            }
           });
+
+          // If all recipients are processed, mark campaign as COMPLETED
+          if (updatedCampaign.sentCount + updatedCampaign.failedCount >= updatedCampaign.totalRecipients) {
+            await prisma.whatsappCampaign.update({
+              where: { id: campaignId },
+              data: { status: 'COMPLETED' }
+            });
+          }
 
         } catch (error: any) {
           errorLogger.error(`Job ${job.id} failed: ${error.message}`);
@@ -60,10 +71,18 @@ export class WhatsappQueueService {
           });
 
           // Increment failure count in Campaign
-          await prisma.whatsappCampaign.update({
+          const updatedCampaign = await prisma.whatsappCampaign.update({
             where: { id: campaignId },
             data: { failedCount: { increment: 1 } }
           });
+
+          // If all recipients are processed, mark campaign as COMPLETED
+          if (updatedCampaign.sentCount + updatedCampaign.failedCount >= updatedCampaign.totalRecipients) {
+            await prisma.whatsappCampaign.update({
+              where: { id: campaignId },
+              data: { status: 'COMPLETED' }
+            });
+          }
 
           throw error; // Rethrow so BullMQ knows it failed
         }

@@ -140,6 +140,43 @@ export default function WhatsappMarketing() {
     }
   });
 
+  // Adjust Campaign Mutation
+  const [editingCost, setEditingCost] = useState(false);
+  const [customCostInput, setCustomCostInput] = useState('');
+
+  const adjustCampaignMutation = useMutation({
+    mutationFn: async (payload: { campaignId: string, costAmount?: number, sentCount?: number, failedCount?: number, status?: string }) => {
+      await axios.post(`${apiBaseUrl}/whatsapp/campaign/adjust-cost`, payload, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+    },
+    onSuccess: () => {
+      alert('Campaign bill & stats updated successfully!');
+      setEditingCost(false);
+      queryClient.invalidateQueries({ queryKey: ['whatsappPendingCampaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['whatsappCampaigns'] });
+    },
+    onError: (error: any) => {
+      alert(`Error adjusting campaign: ${error.response?.data?.error || error.message}`);
+    }
+  });
+
+  const recalculateMutation = useMutation({
+    mutationFn: async (campaignId: string) => {
+      await axios.post(`${apiBaseUrl}/whatsapp/campaign/recalculate`, { campaignId, perMessageRate: 0.20 }, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+    },
+    onSuccess: () => {
+      alert('Campaign stats & bill recalculated from message logs!');
+      queryClient.invalidateQueries({ queryKey: ['whatsappPendingCampaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['whatsappCampaigns'] });
+    },
+    onError: (error: any) => {
+      alert(`Error recalculating: ${error.response?.data?.error || error.message}`);
+    }
+  });
+
   // Handlers
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -246,38 +283,111 @@ export default function WhatsappMarketing() {
                 </div>
               </div>
             ) : pendingStatus?.pending ? (
-              <div className="bg-white p-8 rounded-2xl border border-red-200 shadow-lg text-center">
-                <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-red-50">
-                  <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+              <div className="bg-white p-8 rounded-2xl border border-red-200 shadow-lg text-center max-w-xl mx-auto">
+                <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-red-50">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-2">Campaign Locked</h2>
-                <p className="text-sm text-gray-500 mb-6">You have an unpaid service charge from your previous campaign <b>({pendingStatus.campaign.name})</b>. Please clear the dues to unlock new campaigns.</p>
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">Campaign Service Charge Pending</h2>
+                <p className="text-sm text-gray-500 mb-5">Previous campaign <b>"{pendingStatus.campaign.name}"</b> has pending service charges. Clear dues or adjust based on actual delivery to unlock.</p>
                 
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 mb-6 inline-block w-full max-w-sm text-left">
-                  <div className="flex justify-between items-center mb-4">
-                    <span className="text-sm font-bold text-gray-500 uppercase tracking-wider">Amount Due:</span>
-                    <span className="text-2xl font-black text-red-600">₹{pendingStatus.campaign.costAmount.toFixed(2)}</span>
+                {/* Delivery & Stats Breakdown */}
+                <div className="grid grid-cols-3 gap-2 mb-4 text-left">
+                  <div className="bg-gray-50 p-2.5 rounded-lg border border-gray-150">
+                    <p className="text-[10px] uppercase font-bold text-gray-400">Total Uploaded</p>
+                    <p className="text-sm font-bold text-gray-800">{pendingStatus.campaign.totalRecipients}</p>
                   </div>
-                  <div className="border-t border-slate-200 pt-4 mb-4">
-                    <p className="text-xs text-gray-600 mb-2 font-semibold">Pay via UPI / PhonePe / GPay:</p>
-                    <p className="text-lg font-bold text-gray-800 mb-1">+91 7727038430</p>
-                    <p className="text-[10px] text-gray-500">(Send payment to Aayush)</p>
+                  <div className="bg-green-50 p-2.5 rounded-lg border border-green-150">
+                    <p className="text-[10px] uppercase font-bold text-green-600">Sent / Delivered</p>
+                    <p className="text-sm font-bold text-green-800">{pendingStatus.campaign.sentCount}</p>
+                  </div>
+                  <div className="bg-red-50 p-2.5 rounded-lg border border-red-150">
+                    <p className="text-[10px] uppercase font-bold text-red-600">Failed / Dropped</p>
+                    <p className="text-sm font-bold text-red-800">{pendingStatus.campaign.failedCount}</p>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 mb-5 text-left">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Amount Due:</span>
+                    <div className="text-right">
+                      <span className="text-2xl font-black text-red-600">₹{pendingStatus.campaign.costAmount.toFixed(2)}</span>
+                      <button 
+                        onClick={() => setEditingCost(!editingCost)}
+                        className="block text-[11px] text-brand-600 hover:underline font-semibold ml-auto"
+                      >
+                        {editingCost ? 'Cancel Edit' : '✏️ Adjust / Correct Bill'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Edit / Adjust Cost Form */}
+                  {editingCost && (
+                    <div className="my-3 p-3 bg-white border border-brand-200 rounded-lg space-y-2">
+                      <label className="text-[11px] font-bold text-gray-700 block">Set Correct Bill Amount (₹)</label>
+                      <div className="flex gap-2">
+                        <input 
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g. 280.00"
+                          value={customCostInput}
+                          onChange={(e) => setCustomCostInput(e.target.value)}
+                          className="crm-input text-xs flex-1"
+                        />
+                        <button
+                          onClick={() => {
+                            const val = parseFloat(customCostInput);
+                            if (isNaN(val) || val < 0) return alert('Please enter a valid amount');
+                            adjustCampaignMutation.mutate({ campaignId: pendingStatus.campaign.id, costAmount: val });
+                          }}
+                          disabled={adjustCampaignMutation.isPending}
+                          className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-lg transition"
+                        >
+                          Save
+                        </button>
+                      </div>
+
+                      {/* Quick Presets */}
+                      <div className="flex gap-1.5 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // Quick preset: 1400 delivered @ 0.20 = 280
+                            adjustCampaignMutation.mutate({ campaignId: pendingStatus.campaign.id, costAmount: 280.00, sentCount: 1400, failedCount: 8974, status: 'COMPLETED' });
+                          }}
+                          className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded font-medium"
+                        >
+                          ⚡ Set to 1,400 Delivered (₹280.00)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => recalculateMutation.mutate(pendingStatus.campaign.id)}
+                          className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded font-medium"
+                        >
+                          🔄 Recalculate from Logs
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="border-t border-slate-200 pt-3 mb-3">
+                    <p className="text-xs text-gray-600 mb-1 font-semibold">Pay via UPI / PhonePe / GPay:</p>
+                    <p className="text-base font-bold text-gray-800">+91 7727038430 <span className="text-xs font-normal text-gray-500">(Aayush)</span></p>
                   </div>
                   
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <label className="text-xs font-bold text-gray-500 uppercase">Attach Screenshot / UTR (Optional)</label>
                     <input type="text" id="paymentProofInput" placeholder="Paste UTR or Screenshot Link" className="crm-input text-xs" />
                   </div>
                 </div>
 
-                <div>
+                <div className="flex gap-3 justify-center">
                   <button 
                     onClick={() => {
                       const proof = (document.getElementById('paymentProofInput') as HTMLInputElement)?.value || 'Offline Payment';
                       payCampaignMutation.mutate({ campaignId: pendingStatus.campaign.id, paymentProof: proof });
                     }}
                     disabled={payCampaignMutation.isPending}
-                    className="px-8 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg transition active:scale-[0.98] disabled:opacity-50"
+                    className="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg transition active:scale-[0.98] disabled:opacity-50 text-sm"
                   >
                     {payCampaignMutation.isPending ? 'Unlocking...' : 'Mark as Paid & Unlock'}
                   </button>
@@ -413,14 +523,16 @@ export default function WhatsappMarketing() {
                   <th className="py-3 px-4 text-left text-[11px] font-bold text-white uppercase tracking-wider">Template</th>
                   <th className="py-3 px-4 text-left text-[11px] font-bold text-white uppercase tracking-wider">Status</th>
                   <th className="py-3 px-4 text-left text-[11px] font-bold text-white uppercase tracking-wider">Progress</th>
+                  <th className="py-3 px-4 text-left text-[11px] font-bold text-white uppercase tracking-wider">Bill Amount</th>
+                  <th className="py-3 px-4 text-left text-[11px] font-bold text-white uppercase tracking-wider">Actions</th>
                   <th className="py-3 px-4 text-left text-[11px] font-bold text-white uppercase tracking-wider">Sent Date</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {isLoadingCampaigns ? (
-                  <tr><td colSpan={5} className="p-8 text-center text-gray-400">Loading history...</td></tr>
+                  <tr><td colSpan={7} className="p-8 text-center text-gray-400">Loading history...</td></tr>
                 ) : campaigns?.length === 0 ? (
-                  <tr><td colSpan={5} className="p-8 text-center text-gray-400">No campaigns found.</td></tr>
+                  <tr><td colSpan={7} className="p-8 text-center text-gray-400">No campaigns found.</td></tr>
                 ) : (
                   campaigns?.map((camp: any) => (
                     <tr key={camp.id} className="hover:bg-gray-50 transition">
@@ -438,11 +550,40 @@ export default function WhatsappMarketing() {
                       <td className="py-3 px-4 text-xs">
                         <div className="flex items-center gap-2">
                           <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-green-500" style={{ width: `${(camp.sentCount / camp.totalRecipients) * 100}%`}}></div>
+                            <div className="h-full bg-green-500" style={{ width: `${camp.totalRecipients > 0 ? (camp.sentCount / camp.totalRecipients) * 100 : 0}%`}}></div>
                           </div>
                           <span className="font-mono text-gray-600">{camp.sentCount}/{camp.totalRecipients}</span>
                         </div>
                         {camp.failedCount > 0 && <p className="text-[10px] text-red-500 mt-1">{camp.failedCount} Failed</p>}
+                      </td>
+                      <td className="py-3 px-4 text-xs">
+                        <span className="font-bold text-gray-800">₹{camp.costAmount ? camp.costAmount.toFixed(2) : '0.00'}</span>
+                        <span className={`block text-[10px] ${camp.paymentStatus === 'PAID' ? 'text-green-600' : 'text-amber-600 font-semibold'}`}>
+                          {camp.paymentStatus}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => {
+                              const newAmt = prompt(`Enter corrected bill amount for "${camp.name}":`, (camp.costAmount || 0).toString());
+                              if (newAmt !== null && !isNaN(parseFloat(newAmt))) {
+                                adjustCampaignMutation.mutate({ campaignId: camp.id, costAmount: parseFloat(newAmt) });
+                              }
+                            }}
+                            className="text-[10px] text-brand-600 hover:underline font-semibold bg-brand-50 px-2 py-1 rounded"
+                          >
+                            Edit Bill
+                          </button>
+                          {camp.status === 'PROCESSING' && (
+                            <button
+                              onClick={() => adjustCampaignMutation.mutate({ campaignId: camp.id, status: 'COMPLETED' })}
+                              className="text-[10px] text-gray-600 hover:underline bg-gray-100 px-2 py-1 rounded"
+                            >
+                              Mark Done
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3 px-4 text-xs text-gray-500">{new Date(camp.createdAt).toLocaleString()}</td>
                     </tr>

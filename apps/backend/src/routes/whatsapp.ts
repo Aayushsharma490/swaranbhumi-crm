@@ -90,6 +90,64 @@ export default async function whatsappRoutes(fastify: FastifyInstance) {
     return { success: true, message: 'Campaign unlocked successfully', campaign };
   });
 
+  // POST Adjust Campaign Cost / Numbers (Manual Override or Fix)
+  fastify.post('/campaign/adjust-cost', async (request, reply) => {
+    const schema = z.object({
+      campaignId: z.string(),
+      costAmount: z.number().optional(),
+      sentCount: z.number().optional(),
+      failedCount: z.number().optional(),
+      status: z.string().optional(),
+      paymentStatus: z.string().optional()
+    });
+
+    const parsed = schema.safeParse(request.body);
+    if (!parsed.success) return reply.status(400).send({ error: 'Invalid data' });
+
+    const { campaignId, ...updateData } = parsed.data;
+    const campaign = await prisma.whatsappCampaign.update({
+      where: { id: campaignId },
+      data: updateData
+    });
+
+    return { success: true, message: 'Campaign updated successfully', campaign };
+  });
+
+  // POST Recalculate Campaign Stats from Message Logs
+  fastify.post('/campaign/recalculate', async (request, reply) => {
+    const schema = z.object({
+      campaignId: z.string(),
+      perMessageRate: z.number().default(0.20)
+    });
+
+    const parsed = schema.safeParse(request.body);
+    if (!parsed.success) return reply.status(400).send({ error: 'Invalid data' });
+
+    const { campaignId, perMessageRate } = parsed.data;
+
+    const logs = await prisma.whatsappMessageLog.findMany({
+      where: { campaignId }
+    });
+
+    const sentLogs = logs.filter(l => ['SENT', 'DELIVERED', 'READ'].includes(l.status));
+    const failedLogs = logs.filter(l => l.status === 'FAILED');
+    const actualSentCount = sentLogs.length;
+    const actualFailedCount = failedLogs.length;
+    const computedCost = Number((actualSentCount * perMessageRate).toFixed(2));
+
+    const updatedCampaign = await prisma.whatsappCampaign.update({
+      where: { id: campaignId },
+      data: {
+        sentCount: actualSentCount,
+        failedCount: actualFailedCount,
+        costAmount: computedCost,
+        status: (actualSentCount + actualFailedCount >= logs.length && logs.length > 0) ? 'COMPLETED' : undefined
+      }
+    });
+
+    return { success: true, campaign: updatedCampaign };
+  });
+
   // POST Create Campaign (Accepts JSON list of recipients from Frontend)
   fastify.post('/campaign/create', async (request, reply) => {
     const schema = z.object({
@@ -123,9 +181,7 @@ export default async function whatsappRoutes(fastify: FastifyInstance) {
       return reply.status(403).send({ error: 'Previous campaign service charge is pending. Please clear dues to start a new campaign.' });
     }
 
-    // 1. Create Campaign in DB
-    const cost = recipients.length * 0.20;
-    
+    // 1. Create Campaign in DB (Cost starts at 0 and increments with actual successful sends)
     const campaign = await prisma.whatsappCampaign.create({
       data: {
         name: campaignName,
@@ -133,7 +189,7 @@ export default async function whatsappRoutes(fastify: FastifyInstance) {
         templateLang,
         status: 'PROCESSING',
         totalRecipients: recipients.length,
-        costAmount: cost,
+        costAmount: 0,
         paymentStatus: 'PENDING'
       }
     });
