@@ -62,6 +62,9 @@ export class WhatsappService {
 
       // Ensure phone is clean and has country code
       let cleanPhone = toPhone.replace(/\D/g, '');
+      if (cleanPhone.length === 11 && cleanPhone.startsWith('0')) {
+        cleanPhone = cleanPhone.slice(1);
+      }
       if (cleanPhone.length === 10) {
         cleanPhone = '91' + cleanPhone; // Default to India if only 10 digits
       }
@@ -130,6 +133,9 @@ export class WhatsappService {
 
       // Ensure phone is clean and has country code
       let cleanPhone = toPhone.replace(/\D/g, '');
+      if (cleanPhone.length === 11 && cleanPhone.startsWith('0')) {
+        cleanPhone = cleanPhone.slice(1);
+      }
       if (cleanPhone.length === 10) {
         cleanPhone = '91' + cleanPhone; // Default to India if only 10 digits
       }

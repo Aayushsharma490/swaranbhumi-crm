@@ -148,6 +148,37 @@ export default async function whatsappRoutes(fastify: FastifyInstance) {
     return { success: true, campaign: updatedCampaign };
   });
 
+  // DELETE Campaign by ID (Cascade deletes all logs)
+  fastify.delete('/campaign/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    try {
+      await prisma.whatsappCampaign.delete({
+        where: { id }
+      });
+      return { success: true, message: 'Campaign deleted successfully' };
+    } catch (err: any) {
+      return reply.status(500).send({ error: err.message });
+    }
+  });
+
+  // POST Clean Campaigns by Pattern (e.g. micchami)
+  fastify.post('/campaign/clean', async (request, reply) => {
+    const { pattern = 'micchami' } = (request.body as { pattern?: string }) || {};
+    try {
+      const deleted = await prisma.whatsappCampaign.deleteMany({
+        where: {
+          OR: [
+            { name: { contains: pattern, mode: 'insensitive' } },
+            { templateName: { contains: pattern, mode: 'insensitive' } }
+          ]
+        }
+      });
+      return { success: true, count: deleted.count, message: `Successfully deleted ${deleted.count} campaign(s)` };
+    } catch (err: any) {
+      return reply.status(500).send({ error: err.message });
+    }
+  });
+
   // POST Create Campaign (Accepts JSON list of recipients from Frontend)
   fastify.post('/campaign/create', async (request, reply) => {
     const schema = z.object({

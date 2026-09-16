@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useAuthStore } from '../store/useAuthStore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { io, Socket } from 'socket.io-client';
-import { MessageCircle, Send, Check, CheckCheck, Clock, User, Phone } from 'lucide-react';
+import { MessageCircle, Send, Check, CheckCheck, Clock, User, Phone, RefreshCw } from 'lucide-react';
 
 interface Contact {
   id: string;
@@ -32,37 +32,50 @@ export default function WhatsappChat() {
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Fetch Contacts
-  const { data: contacts = [], refetch: refetchContacts } = useQuery<Contact[]>({
-    queryKey: ['whatsappContacts'],
-    queryFn: async () => {
-      const res = await axios.get(`${apiBaseUrl}/chat/contacts`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
+  // Helper with fallback between /whatsapp/chat and /chat
+  const getChatData = async (path: string) => {
+    const config = { headers: { Authorization: `Bearer ${accessToken}` } };
+    try {
+      const res = await axios.get(`${apiBaseUrl}/whatsapp/chat${path}`, config);
       return res.data;
+    } catch (err: any) {
+      const fallbackRes = await axios.get(`${apiBaseUrl}/chat${path}`, config);
+      return fallbackRes.data;
     }
+  };
+
+  const postChatData = async (path: string, payload: any) => {
+    const config = { headers: { Authorization: `Bearer ${accessToken}` } };
+    try {
+      const res = await axios.post(`${apiBaseUrl}/whatsapp/chat${path}`, payload, config);
+      return res.data;
+    } catch (err: any) {
+      const fallbackRes = await axios.post(`${apiBaseUrl}/chat${path}`, payload, config);
+      return fallbackRes.data;
+    }
+  };
+
+  // Fetch Contacts (with 10-second background polling)
+  const { data: contacts = [], refetch: refetchContacts, isFetching: isFetchingContacts } = useQuery<Contact[]>({
+    queryKey: ['whatsappContacts'],
+    queryFn: () => getChatData('/contacts'),
+    refetchInterval: 10000
   });
 
-  // Fetch Messages for selected contact
+  // Fetch Messages for selected contact (with 5-second background polling)
   const { data: messages = [], refetch: refetchMessages } = useQuery<Message[]>({
     queryKey: ['whatsappMessages', selectedPhone],
-    queryFn: async () => {
+    queryFn: () => {
       if (!selectedPhone) return [];
-      const res = await axios.get(`${apiBaseUrl}/chat/messages/${selectedPhone}`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-      return res.data;
+      return getChatData(`/messages/${selectedPhone}`);
     },
-    enabled: !!selectedPhone
+    enabled: !!selectedPhone,
+    refetchInterval: selectedPhone ? 5000 : false
   });
 
   // Mark Read Mutation
   const markReadMutation = useMutation({
-    mutationFn: async (phone: string) => {
-      await axios.post(`${apiBaseUrl}/chat/mark-read/${phone}`, {}, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-    },
+    mutationFn: (phone: string) => postChatData(`/mark-read/${phone}`, {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['whatsappContacts'] });
     }
@@ -70,12 +83,7 @@ export default function WhatsappChat() {
 
   // Send Message Mutation
   const sendMessageMutation = useMutation({
-    mutationFn: async (payload: { phone: string; text: string }) => {
-      const res = await axios.post(`${apiBaseUrl}/chat/send`, payload, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-      return res.data;
-    },
+    mutationFn: (payload: { phone: string; text: string }) => postChatData('/send', payload),
     onSuccess: () => {
       setInputText('');
       queryClient.invalidateQueries({ queryKey: ['whatsappMessages', selectedPhone] });
@@ -144,6 +152,16 @@ export default function WhatsappChat() {
           <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
             <MessageCircle className="w-4 h-4 text-brand-600" /> WhatsApp Inbox
           </h2>
+          <button 
+            type="button"
+            onClick={() => refetchContacts()}
+            disabled={isFetchingContacts}
+            className="text-[11px] text-brand-600 hover:text-brand-700 font-semibold flex items-center gap-1 hover:underline disabled:opacity-50"
+            title="Refresh inbox"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isFetchingContacts ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
         </div>
         <div className="flex-1 overflow-y-auto">
           {contacts.map(contact => (

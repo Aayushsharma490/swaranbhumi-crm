@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { useAuthStore } from '../store/useAuthStore';
-import { Settings, Send, History, AlertCircle, UploadCloud, CheckCircle2, Users } from 'lucide-react';
+import { Settings, Send, History, AlertCircle, UploadCloud, CheckCircle2, Users, Trash2 } from 'lucide-react';
 
 export default function WhatsappMarketing() {
   const { accessToken, apiBaseUrl } = useAuthStore();
@@ -177,7 +177,84 @@ export default function WhatsappMarketing() {
     }
   });
 
-  // Handlers
+  const deleteCampaignMutation = useMutation({
+    mutationFn: async (campaignId: string) => {
+      await axios.delete(`${apiBaseUrl}/whatsapp/campaign/${campaignId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['whatsappPendingCampaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['whatsappCampaigns'] });
+    },
+    onError: (error: any) => {
+      alert(`Error deleting campaign: ${error.response?.data?.error || error.message}`);
+    }
+  });
+
+  const cleanCampaignsMutation = useMutation({
+    mutationFn: async (pattern: string) => {
+      const res = await axios.post(`${apiBaseUrl}/whatsapp/campaign/clean`, { pattern }, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      return res.data;
+    },
+    onSuccess: (data: any) => {
+      alert(data?.message || 'Campaigns cleaned successfully!');
+      queryClient.invalidateQueries({ queryKey: ['whatsappPendingCampaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['whatsappCampaigns'] });
+    },
+    onError: (error: any) => {
+      alert(`Error cleaning campaigns: ${error.response?.data?.error || error.message}`);
+    }
+  });
+
+  // Robust CSV parser supporting quotes, commas within quotes, CRLF, and headers
+  const parseCSVRows = (text: string): string[][] => {
+    const rows: string[][] = [];
+    let currentRow: string[] = [];
+    let currentField = '';
+    let insideQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      const nextChar = text[i + 1];
+
+      if (char === '"') {
+        if (insideQuotes && nextChar === '"') {
+          currentField += '"';
+          i++; // Skip escaped quote
+        } else {
+          insideQuotes = !insideQuotes;
+        }
+      } else if (char === ',' && !insideQuotes) {
+        currentRow.push(currentField.trim());
+        currentField = '';
+      } else if ((char === '\r' || char === '\n') && !insideQuotes) {
+        if (char === '\r' && nextChar === '\n') {
+          i++;
+        }
+        currentRow.push(currentField.trim());
+        currentField = '';
+        if (currentRow.some((val) => val.length > 0)) {
+          rows.push(currentRow);
+        }
+        currentRow = [];
+      } else {
+        currentField += char;
+      }
+    }
+
+    if (currentField.length > 0 || currentRow.length > 0) {
+      currentRow.push(currentField.trim());
+      if (currentRow.some((val) => val.length > 0)) {
+        rows.push(currentRow);
+      }
+    }
+
+    return rows;
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -185,27 +262,83 @@ export default function WhatsappMarketing() {
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const text = event.target?.result as string;
-      const lines = text.split('\n');
-      const recipients: {name: string, phone: string}[] = [];
-      
-      // Basic CSV parsing (assuming first row might be header)
-      lines.forEach((line, index) => {
-        if (!line.trim()) return;
-        const cols = line.split(',');
-        // If it's the first line and it contains 'phone' or 'number', skip header
-        if (index === 0 && line.toLowerCase().includes('phone')) return;
-        
-        // Try to extract phone (usually the longest numeric string or specific column)
-        const possiblePhone = cols.find(c => c.replace(/\D/g, '').length >= 10);
-        if (possiblePhone) {
-          recipients.push({
-            name: cols[0] || 'Customer',
-            phone: possiblePhone.replace(/\D/g, '')
+      const text = (event.target?.result as string) || '';
+      const rows = parseCSVRows(text);
+      if (rows.length === 0) {
+        setParsedRecipients([]);
+        return alert('The selected CSV file is empty.');
+      }
+
+      // Check if first row is a header row
+      const firstRowNormalized = rows[0].map((col) =>
+        col.toLowerCase().replace(/[^a-z0-9]/g, '')
+      );
+      const isHeader = firstRowNormalized.some((col) =>
+        ['name', 'phone', 'phonenumber', 'mobile', 'contact', 'role', 'status'].includes(col)
+      );
+
+      let nameColIndex = 0;
+      let phoneColIndex = -1;
+
+      let dataRows = rows;
+      if (isHeader) {
+        dataRows = rows.slice(1);
+        phoneColIndex = firstRowNormalized.findIndex(
+          (col) => col.includes('phone') || col.includes('mobile') || col.includes('contact')
+        );
+        const foundNameIndex = firstRowNormalized.findIndex((col) => col.includes('name'));
+        if (foundNameIndex !== -1) {
+          nameColIndex = foundNameIndex;
+        }
+      }
+
+      const recipients: { name: string; phone: string }[] = [];
+      const seenPhones = new Set<string>();
+
+      dataRows.forEach((cols) => {
+        let rawPhone = '';
+        if (phoneColIndex !== -1 && cols[phoneColIndex]) {
+          rawPhone = cols[phoneColIndex];
+        } else {
+          // If no specific phone header found, scan columns for a 10-12 digit number
+          const found = cols.find((c) => {
+            const digits = c.replace(/\D/g, '');
+            return digits.length >= 10 && digits.length <= 13;
           });
+          if (found) rawPhone = found;
+        }
+
+        let digits = rawPhone.replace(/\D/g, '');
+        // Normalize: if 12 digits starting with 91, keep 10-digit base
+        if (digits.length === 12 && digits.startsWith('91')) {
+          digits = digits.slice(2);
+        } else if (digits.length === 11 && digits.startsWith('0')) {
+          digits = digits.slice(1);
+        } else if (digits.length > 10) {
+          digits = digits.slice(-10);
+        }
+
+        // Validate 10-digit Indian mobile number format
+        if (digits.length === 10) {
+          if (!seenPhones.has(digits)) {
+            seenPhones.add(digits);
+            let rawName = cols[nameColIndex] || 'Customer';
+            rawName = rawName.replace(/^["']|["']$/g, '').trim();
+            if (!rawName || rawName.toLowerCase() === 'nan') {
+              rawName = 'Customer';
+            }
+            recipients.push({
+              name: rawName,
+              phone: digits
+            });
+          }
         }
       });
+
       setParsedRecipients(recipients);
+      if (recipients.length === 0) {
+        alert('No valid 10-digit phone numbers could be extracted from this CSV. Please check the file columns.');
+      }
     };
     reader.readAsText(file);
   };
@@ -482,18 +615,47 @@ export default function WhatsappMarketing() {
 
                   {audienceType === 'EXCEL' && (
                     <div className="p-6 border-2 border-dashed border-gray-300 rounded-xl text-center bg-gray-50 hover:bg-gray-100 transition cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                      <input type="file" accept=".csv" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
+                      <input 
+                        type="file" 
+                        accept=".csv" 
+                        className="hidden" 
+                        ref={fileInputRef} 
+                        onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
+                        onChange={handleFileUpload} 
+                      />
                       <UploadCloud className="w-10 h-10 text-gray-400 mx-auto mb-2" />
-                      <p className="text-sm font-bold text-gray-700">Click to upload CSV file</p>
-                      <p className="text-xs text-gray-500 mt-1">Ensure file has a phone number column.</p>
+                      <p className="text-sm font-bold text-gray-700">Click to upload CSV batch file</p>
+                      <p className="text-xs text-gray-500 mt-1">Supports standard CSV formats (batch_1_of_8, final_merged_sheet, etc.)</p>
                       
                       {csvFile && (
-                        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between text-left">
-                          <div>
-                            <p className="text-xs font-bold text-green-800 flex items-center gap-1"><CheckCircle2 className="w-4 h-4"/> {csvFile.name}</p>
-                            <p className="text-[10px] text-green-600 mt-0.5">Found {parsedRecipients.length} valid numbers.</p>
+                        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-left space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-xs font-bold text-green-800 flex items-center gap-1"><CheckCircle2 className="w-4 h-4"/> {csvFile.name}</p>
+                              <p className="text-[11px] font-semibold text-green-700 mt-0.5">Found {parsedRecipients.length} valid contacts ready to blast.</p>
+                            </div>
+                            <button className="text-xs text-red-500 hover:underline font-semibold" onClick={(e) => { 
+                              e.stopPropagation(); 
+                              setCsvFile(null); 
+                              setParsedRecipients([]);
+                              if (fileInputRef.current) fileInputRef.current.value = '';
+                            }}>Remove</button>
                           </div>
-                          <button className="text-xs text-red-500 hover:underline" onClick={(e) => { e.stopPropagation(); setCsvFile(null); setParsedRecipients([]);}}>Remove</button>
+                          {parsedRecipients.length > 0 && (
+                            <div className="bg-white/90 rounded p-2 text-[10px] text-gray-600 border border-green-200">
+                              <span className="font-bold text-gray-700 block mb-1">Preview (First 3 contacts):</span>
+                              <div className="flex flex-wrap gap-1">
+                                {parsedRecipients.slice(0, 3).map((r, i) => (
+                                  <span key={i} className="inline-block bg-gray-100 px-2 py-0.5 rounded text-gray-800 border border-gray-200">
+                                    👤 {r.name} (+91 {r.phone})
+                                  </span>
+                                ))}
+                                {parsedRecipients.length > 3 && (
+                                  <span className="text-gray-400 self-center pl-1">...and {parsedRecipients.length - 3} more</span>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -515,82 +677,116 @@ export default function WhatsappMarketing() {
 
         {/* HISTORY TAB */}
         {activeTab === 'HISTORY' && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-             <table className="w-full text-left border-collapse text-sm">
-              <thead className="bg-slate-800 border-b border-slate-900 sticky top-0 z-10 shadow-sm">
-                <tr>
-                  <th className="py-3 px-4 text-left text-[11px] font-bold text-white uppercase tracking-wider">Campaign Name</th>
-                  <th className="py-3 px-4 text-left text-[11px] font-bold text-white uppercase tracking-wider">Template</th>
-                  <th className="py-3 px-4 text-left text-[11px] font-bold text-white uppercase tracking-wider">Status</th>
-                  <th className="py-3 px-4 text-left text-[11px] font-bold text-white uppercase tracking-wider">Progress</th>
-                  <th className="py-3 px-4 text-left text-[11px] font-bold text-white uppercase tracking-wider">Bill Amount</th>
-                  <th className="py-3 px-4 text-left text-[11px] font-bold text-white uppercase tracking-wider">Actions</th>
-                  <th className="py-3 px-4 text-left text-[11px] font-bold text-white uppercase tracking-wider">Sent Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {isLoadingCampaigns ? (
-                  <tr><td colSpan={7} className="p-8 text-center text-gray-400">Loading history...</td></tr>
-                ) : campaigns?.length === 0 ? (
-                  <tr><td colSpan={7} className="p-8 text-center text-gray-400">No campaigns found.</td></tr>
-                ) : (
-                  campaigns?.map((camp: any) => (
-                    <tr key={camp.id} className="hover:bg-gray-50 transition">
-                      <td className="py-3 px-4 font-bold text-gray-800">{camp.name}</td>
-                      <td className="py-3 px-4 text-xs text-gray-600 font-mono">{camp.templateName}</td>
-                      <td className="py-3 px-4">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          camp.status === 'PROCESSING' ? 'bg-blue-100 text-blue-700' :
-                          camp.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
-                          'bg-gray-100 text-gray-700'
-                        }`}>
-                          {camp.status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-xs">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-green-500" style={{ width: `${camp.totalRecipients > 0 ? (camp.sentCount / camp.totalRecipients) * 100 : 0}%`}}></div>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-bold text-gray-800">Campaign Blast History</h2>
+                <p className="text-xs text-gray-500">Track sent, failed messages and bills for your campaigns</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm('Are you sure you want to clean all "Micchami Dukkadam" campaigns and logs from history?')) {
+                    cleanCampaignsMutation.mutate('micchami');
+                  }
+                }}
+                disabled={cleanCampaignsMutation.isPending}
+                className="text-xs bg-red-50 hover:bg-red-100 text-red-700 font-bold px-3 py-2 rounded-lg border border-red-200 transition flex items-center gap-1.5 shadow-sm"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {cleanCampaignsMutation.isPending ? 'Cleaning...' : 'Clean Micchami Campaigns'}
+              </button>
+            </div>
+
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+               <table className="w-full text-left border-collapse text-sm">
+                <thead className="bg-slate-800 border-b border-slate-900 sticky top-0 z-10 shadow-sm">
+                  <tr>
+                    <th className="py-3 px-4 text-left text-[11px] font-bold text-white uppercase tracking-wider">Campaign Name</th>
+                    <th className="py-3 px-4 text-left text-[11px] font-bold text-white uppercase tracking-wider">Template</th>
+                    <th className="py-3 px-4 text-left text-[11px] font-bold text-white uppercase tracking-wider">Status</th>
+                    <th className="py-3 px-4 text-left text-[11px] font-bold text-white uppercase tracking-wider">Progress</th>
+                    <th className="py-3 px-4 text-left text-[11px] font-bold text-white uppercase tracking-wider">Bill Amount</th>
+                    <th className="py-3 px-4 text-left text-[11px] font-bold text-white uppercase tracking-wider">Actions</th>
+                    <th className="py-3 px-4 text-left text-[11px] font-bold text-white uppercase tracking-wider">Sent Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {isLoadingCampaigns ? (
+                    <tr><td colSpan={7} className="p-8 text-center text-gray-400">Loading history...</td></tr>
+                  ) : campaigns?.length === 0 ? (
+                    <tr><td colSpan={7} className="p-8 text-center text-gray-400">No campaigns found.</td></tr>
+                  ) : (
+                    campaigns?.map((camp: any) => (
+                      <tr key={camp.id} className="hover:bg-gray-50 transition">
+                        <td className="py-3 px-4 font-bold text-gray-800">{camp.name}</td>
+                        <td className="py-3 px-4 text-xs text-gray-600 font-mono">{camp.templateName}</td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            camp.status === 'PROCESSING' ? 'bg-blue-100 text-blue-700' :
+                            camp.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {camp.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-xs">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-green-500" style={{ width: `${camp.totalRecipients > 0 ? (camp.sentCount / camp.totalRecipients) * 100 : 0}%`}}></div>
+                            </div>
+                            <span className="font-mono text-gray-600">{camp.sentCount}/{camp.totalRecipients}</span>
                           </div>
-                          <span className="font-mono text-gray-600">{camp.sentCount}/{camp.totalRecipients}</span>
-                        </div>
-                        {camp.failedCount > 0 && <p className="text-[10px] text-red-500 mt-1">{camp.failedCount} Failed</p>}
-                      </td>
-                      <td className="py-3 px-4 text-xs">
-                        <span className="font-bold text-gray-800">₹{camp.costAmount ? camp.costAmount.toFixed(2) : '0.00'}</span>
-                        <span className={`block text-[10px] ${camp.paymentStatus === 'PAID' ? 'text-green-600' : 'text-amber-600 font-semibold'}`}>
-                          {camp.paymentStatus}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-xs">
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => {
-                              const newAmt = prompt(`Enter corrected bill amount for "${camp.name}":`, (camp.costAmount || 0).toString());
-                              if (newAmt !== null && !isNaN(parseFloat(newAmt))) {
-                                adjustCampaignMutation.mutate({ campaignId: camp.id, costAmount: parseFloat(newAmt) });
-                              }
-                            }}
-                            className="text-[10px] text-brand-600 hover:underline font-semibold bg-brand-50 px-2 py-1 rounded"
-                          >
-                            Edit Bill
-                          </button>
-                          {camp.status === 'PROCESSING' && (
+                          {camp.failedCount > 0 && <p className="text-[10px] text-red-500 mt-1">{camp.failedCount} Failed</p>}
+                        </td>
+                        <td className="py-3 px-4 text-xs">
+                          <span className="font-bold text-gray-800">₹{camp.costAmount ? camp.costAmount.toFixed(2) : '0.00'}</span>
+                          <span className={`block text-[10px] ${camp.paymentStatus === 'PAID' ? 'text-green-600' : 'text-amber-600 font-semibold'}`}>
+                            {camp.paymentStatus}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-xs">
+                          <div className="flex items-center gap-1.5">
                             <button
-                              onClick={() => adjustCampaignMutation.mutate({ campaignId: camp.id, status: 'COMPLETED' })}
-                              className="text-[10px] text-gray-600 hover:underline bg-gray-100 px-2 py-1 rounded"
+                              onClick={() => {
+                                const newAmt = prompt(`Enter corrected bill amount for "${camp.name}":`, (camp.costAmount || 0).toString());
+                                if (newAmt !== null && !isNaN(parseFloat(newAmt))) {
+                                  adjustCampaignMutation.mutate({ campaignId: camp.id, costAmount: parseFloat(newAmt) });
+                                }
+                              }}
+                              className="text-[10px] text-brand-600 hover:underline font-semibold bg-brand-50 px-2 py-1 rounded"
                             >
-                              Mark Done
+                              Edit Bill
                             </button>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-xs text-gray-500">{new Date(camp.createdAt).toLocaleString()}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                            {camp.status === 'PROCESSING' && (
+                              <button
+                                onClick={() => adjustCampaignMutation.mutate({ campaignId: camp.id, status: 'COMPLETED' })}
+                                className="text-[10px] text-gray-600 hover:underline bg-gray-100 px-2 py-1 rounded"
+                              >
+                                Mark Done
+                              </button>
+                            )}
+                            <button
+                              onClick={() => {
+                                if (confirm(`Permanently delete campaign "${camp.name}" and all associated logs?`)) {
+                                  deleteCampaignMutation.mutate(camp.id);
+                                }
+                              }}
+                              disabled={deleteCampaignMutation.isPending}
+                              title="Delete this campaign"
+                              className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition ml-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-xs text-gray-500">{new Date(camp.createdAt).toLocaleString()}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

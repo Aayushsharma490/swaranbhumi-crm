@@ -148,20 +148,31 @@ export async function metaRoutes(fastify: FastifyInstance) {
                 for (const statusObj of value.statuses) {
                   const messageId = statusObj.id;
                   const statusStr = statusObj.status.toUpperCase(); // SENT, DELIVERED, READ, FAILED
+                  const errors = statusObj.errors;
+                  const errorMsg = errors && errors.length > 0 ? `${errors[0].code}: ${errors[0].title || errors[0].message}` : undefined;
                   
-                  prisma.whatsappChatMessage.update({
+                  // 1. Update 1-to-1 chat messages
+                  prisma.whatsappChatMessage.updateMany({
                     where: { messageId },
                     data: { status: statusStr }
-                  }).then((updated) => {
-                    SocketService.broadcast('WHATSAPP_MESSAGE_STATUS', updated);
-                  }).catch(() => {
-                    // Ignore, message might belong to a template campaign (WhatsappMessageLog)
-                    // Let's also update WhatsappMessageLog just in case
-                    prisma.whatsappMessageLog.updateMany({
-                      where: { messageId },
-                      data: { status: statusStr }
-                    }).catch(() => {});
-                  });
+                  }).then((res) => {
+                    if (res.count > 0) {
+                      SocketService.broadcast('WHATSAPP_MESSAGE_STATUS', { messageId, status: statusStr });
+                    }
+                  }).catch(() => {});
+
+                  // 2. Update Campaign blast logs
+                  prisma.whatsappMessageLog.updateMany({
+                    where: { messageId },
+                    data: { 
+                      status: statusStr,
+                      ...(errorMsg ? { errorMessage: errorMsg } : {})
+                    }
+                  }).then((res) => {
+                    if (res.count > 0) {
+                      SocketService.broadcast('WHATSAPP_CAMPAIGN_LOG_STATUS', { messageId, status: statusStr, errorMessage: errorMsg });
+                    }
+                  }).catch(() => {});
                 }
               }
             }
