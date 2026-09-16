@@ -361,15 +361,26 @@ export default function WhatsappMarketing() {
       }));
     }
 
-    // Find template lang
+    // Find template lang and header requirement
     const tpl = templates?.find((t: any) => t.name === selectedTemplate);
     const lang = tpl?.language || 'en';
+    const requiresImage = tpl?.components?.some((c: any) => c.type === 'HEADER' && c.format === 'IMAGE');
+
+    let effectiveImg = imageUrl.trim();
+    if (requiresImage && !effectiveImg) {
+      if (selectedTemplate.toLowerCase().includes('micchami')) {
+        effectiveImg = 'https://i.ibb.co/fV6T3jCJ/Whats-App-Image-2026-09-15-at-11-49-44-AM.jpg';
+        setImageUrl(effectiveImg);
+      } else {
+        return alert(`Selected template "${selectedTemplate}" has an IMAGE header. Please enter a public image URL.`);
+      }
+    }
 
     createCampaignMutation.mutate({
       campaignName,
       templateName: selectedTemplate,
       templateLang: lang,
-      imageUrl: imageUrl.trim() || undefined,
+      imageUrl: effectiveImg || undefined,
       recipients: finalRecipients
     });
   };
@@ -552,17 +563,33 @@ export default function WhatsappMarketing() {
                     ) : (
                       <select 
                         value={selectedTemplate}
-                        onChange={e => setSelectedTemplate(e.target.value)}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setSelectedTemplate(val);
+                          if (val.toLowerCase().includes('micchami') && !imageUrl) {
+                            setImageUrl('https://i.ibb.co/fV6T3jCJ/Whats-App-Image-2026-09-15-at-11-49-44-AM.jpg');
+                          }
+                        }}
                         className="crm-select"
                       >
                         <option value="">-- Choose an approved template --</option>
-                        {templates?.map((t: any) => (
-                          <option key={t.id} value={t.name}>{t.name} ({t.language})</option>
-                        ))}
+                        {templates?.map((t: any) => {
+                          const hasImg = t.components?.some((c: any) => c.type === 'HEADER' && c.format === 'IMAGE');
+                          return (
+                            <option key={t.id} value={t.name}>
+                              {t.name} ({t.language}) {hasImg ? '🖼️ [Requires Image]' : ''}
+                            </option>
+                          );
+                        })}
                       </select>
                     )}
                     {selectedTemplate && templates && (
                       <div className="mt-2 p-3 bg-gray-50 border border-gray-100 rounded text-xs font-mono text-gray-600 whitespace-pre-wrap">
+                        {templates.find((t:any) => t.name === selectedTemplate)?.components?.find((c:any) => c.type === 'HEADER' && c.format === 'IMAGE') && (
+                          <div className="mb-2 pb-2 border-b border-gray-200 text-amber-700 font-sans font-semibold flex items-center gap-1.5">
+                            🖼️ Meta Warning: This template requires an Image Header parameter to be sent.
+                          </div>
+                        )}
                         {/* Try to show preview if components exist */}
                         {templates.find((t:any) => t.name === selectedTemplate)?.components?.find((c:any) => c.type === 'BODY')?.text || 'No preview available'}
                       </div>
@@ -570,15 +597,28 @@ export default function WhatsappMarketing() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-1">Image URL (Optional)</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+                        Image URL {templates?.find((t: any) => t.name === selectedTemplate)?.components?.some((c: any) => c.type === 'HEADER' && c.format === 'IMAGE') ? '(Required by Meta)' : '(Optional)'}
+                      </label>
+                      {selectedTemplate.toLowerCase().includes('micchami') && (
+                        <button
+                          type="button"
+                          onClick={() => setImageUrl('https://i.ibb.co/fV6T3jCJ/Whats-App-Image-2026-09-15-at-11-49-44-AM.jpg')}
+                          className="text-[10px] text-brand-600 hover:underline font-semibold"
+                        >
+                          Auto-fill Michchami Image
+                        </button>
+                      )}
+                    </div>
                     <input 
                       type="url" 
                       value={imageUrl}
                       onChange={e => setImageUrl(e.target.value)}
-                      placeholder="e.g. https://i.ibb.co/example.jpg (Only if template has Image Header)" 
+                      placeholder="e.g. https://i.ibb.co/example.jpg (Public direct link)" 
                       className="crm-input" 
                     />
-                    <p className="text-[10px] text-gray-500 mt-1">If your template has a media header, paste the direct public link to the image here.</p>
+                    <p className="text-[10px] text-gray-500 mt-1">Direct public link (e.g. ibb.co or CDN). Required if template has an IMAGE header.</p>
                   </div>
                 </div>
 

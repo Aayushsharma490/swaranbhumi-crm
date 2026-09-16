@@ -81,7 +81,13 @@ export class WhatsappService {
         }
       };
 
-      if (imageUrl) {
+      // Auto fallback for templates that require an Image Header
+      let effectiveImageUrl = imageUrl?.trim();
+      if (!effectiveImageUrl && templateName.toLowerCase().includes('micchami')) {
+        effectiveImageUrl = 'https://i.ibb.co/fV6T3jCJ/Whats-App-Image-2026-09-15-at-11-49-44-AM.jpg';
+      }
+
+      if (effectiveImageUrl) {
         payload.template.components = [
           {
             type: 'header',
@@ -89,7 +95,7 @@ export class WhatsappService {
               {
                 type: 'image',
                 image: {
-                  link: imageUrl
+                  link: effectiveImageUrl
                 }
               }
             ]
